@@ -26,17 +26,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 104650165876717766}
-  m_LocalRotation: {x: 0, y: 0.8724961, z: 0.48862112, w: 0}
-  m_LocalPosition: {x: 0, y: 0, z: 2}
-  m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
+  m_LocalRotation: {x: -0.31730473, y: -0, z: -0, w: -0.94832367}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0.01, y: 0.01, z: 0.010000002}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 841816918294389532}
-  m_Father: {fileID: 1537914071277974263}
-  m_LocalEulerAnglesHint: {x: -58.5, y: 180, z: 0}
+  m_Father: {fileID: 4004570871933236952}
+  m_LocalEulerAnglesHint: {x: -53, y: 180, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: -0}
+  m_AnchoredPosition: {x: 0, y: 2.0000002}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!223 &8136943966789009406
@@ -349,8 +349,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 300
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 30ab7fda44f2044429613c0d7e16293f, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 130a2ae951c6df447afd9ab6f9973689, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -449,6 +449,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1537914071277974263}
+  - {fileID: 6856883657506222512}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5309277152398803179
@@ -477,7 +478,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5309277152398803179}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalRotation: {x: 0, y: 0.7071068, z: 0.7071068, w: 0}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
@@ -486,9 +487,8 @@ Transform:
   - {fileID: 6473012029954377159}
   - {fileID: 1009931202227957564}
   - {fileID: 1938906327128439874}
-  - {fileID: 6856883657506222512}
   m_Father: {fileID: 4004570871933236952}
-  m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: -90, y: 180, z: 0}
 --- !u!33 &2501735725502725254
 MeshFilter:
   m_ObjectHideFlags: 0

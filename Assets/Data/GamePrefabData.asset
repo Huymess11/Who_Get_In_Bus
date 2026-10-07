@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1a4d6f7890123456789abcdef012345, type: 3}
+  m_Name: GamePrefabData
+  m_EditorClassIdentifier: Assembly-CSharp::GamePrefabData
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedProperties: []
+  carPrefab: {fileID: 3808598646949289849, guid: 5ffcdb55d8a258144b8844b99bed4ea3, type: 3}
+  extraCarPrefab: {fileID: 1157255378271906462, guid: 9fe2a5405ddb33e458a84148fcf80d2d, type: 3}
+  passengerPrefab: {fileID: 6700678471340810175, guid: 8f66dbcb7710afc428f60564a7a87964, type: 3}
+  beadMaterial: {fileID: 2100000, guid: 3b295c3d0b331324394e1359666d3144, type: 2}
+  busColors: {fileID: 11400000, guid: c2b25b9d53fc4b144a9a96919207c5a7, type: 2}
+  passengerColors: {fileID: 11400000, guid: 9c212d7341ac5634bbac426e8e3998bc, type: 2}
+  extraCarThreshold: 51

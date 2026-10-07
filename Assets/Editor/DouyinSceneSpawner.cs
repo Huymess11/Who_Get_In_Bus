@@ -5,33 +5,33 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 
-namespace DouyinGame.Editor
+namespace GameDesign.Editor
 {
-    public class DouyinSceneSpawner : EditorWindow
+    public class GameSceneSpawner : EditorWindow
     {
         // Đã gỡ bỏ tự động sinh trên load scene. Chỉ chạy khi người dùng bấm Menu hoặc nút trong Tool.
 
-        [MenuItem("Douyin Tools/Spawn Gameplay Simulation Scene (Mô phỏng đầy đủ)", false, 10)]
+        [MenuItem("Tools/Scene Spawner/Spawn Gameplay Simulation Scene (Mô phỏng đầy đủ)", false, 10)]
         public static void SpawnSimulationMenu()
         {
             SpawnFullScene();
         }
 
-        [MenuItem("Douyin Tools/Clear Simulation Scene (Xóa mô phỏng)", false, 11)]
+        [MenuItem("Tools/Scene Spawner/Clear Simulation Scene (Xóa mô phỏng)", false, 11)]
         public static void ClearSimulationMenu()
         {
             ClearScene();
         }
 
-        [MenuItem("Douyin Tools/Open Spawner Window", false, 12)]
+        [MenuItem("Tools/Scene Spawner/Open Spawner Window", false, 12)]
         public static void OpenWindow()
         {
-            GetWindow<DouyinSceneSpawner>("Douyin Spawner");
+            GetWindow<GameSceneSpawner>("Scene Spawner");
         }
 
         private void OnGUI()
         {
-            GUILayout.Label("Mô phỏng Bố trí Scene Cocos sang Unity", EditorStyles.boldLabel);
+            GUILayout.Label("Mô phỏng Bố trí Scene 3D", EditorStyles.boldLabel);
             EditorGUILayout.Space();
 
             if (GUILayout.Button("1. Sinh toàn bộ Object & Bố trí chuẩn (Cocos 1:1)", GUILayout.Height(40)))
@@ -66,7 +66,7 @@ namespace DouyinGame.Editor
                 }
             }
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
-            Debug.Log("<color=yellow>[DouyinSceneSpawner] Đã dọn dẹp các object mô phỏng!</color>");
+            Debug.Log("<color=yellow>[GameSceneSpawner] Đã dọn dẹp các object mô phỏng!</color>");
         }
 
         public static void SpawnFullScene()
@@ -461,38 +461,11 @@ namespace DouyinGame.Editor
             GameObject boardRoot = new GameObject("[Passenger_Board]");
             Undo.RegisterCreatedObjectUndo(boardRoot, "Create [Passenger_Board]");
 
-            // Đặt bảng nằm khớp vị trí vòng cong đường đón xe phía trên
             boardRoot.transform.localPosition = new Vector3(0f, 0.05f, -2.5f);
             boardRoot.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             boardRoot.transform.localScale = Vector3.one * 1.0f;
 
-            PassengerBoardGenerator gen = boardRoot.AddComponent<PassengerBoardGenerator>();
-            gen.columns = 40;
-            gen.rows = 36;
-            gen.beadRadius = 0.14f;
-            gen.useHexStagger = true;
-            gen.cutRoadLoop = true;
-            gen.pattern = PassengerBoardGenerator.PresetPattern.Level_04_Dolphin;
-
-            // Load Bead Material
-            string matPath = "Assets/Material/Mat_PassengerBead.mat";
-            Material beadMat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
-            if (beadMat == null)
-            {
-                Shader shader = Shader.Find("Douyin/PassengerBoardBead") 
-                             ?? Shader.Find("Sprites/Default") 
-                             ?? Shader.Find("Universal Render Pipeline/Unlit");
-                beadMat = new Material(shader);
-                Texture2D beadTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/Bead_Circle.png");
-                if (beadTex != null) beadMat.mainTexture = beadTex;
-
-                string matDir = "Assets/Material";
-                if (!Directory.Exists(matDir)) Directory.CreateDirectory(matDir);
-                AssetDatabase.CreateAsset(beadMat, matPath);
-            }
-            gen.beadMaterial = beadMat;
-
-            gen.GenerateBoard();
+            /* SetupPassengerBoard completely disabled because PassengerBoardGenerator is removed */
         }
 
         private static Mesh LoadMesh(string meshName)
