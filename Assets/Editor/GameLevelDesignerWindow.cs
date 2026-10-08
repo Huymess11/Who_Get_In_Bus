@@ -17,6 +17,14 @@ namespace GameLevelDesign.Editor
             window.Show();
         }
 
+        public static void OpenWindowToTab(int tabIndex)
+        {
+            var window = GetWindow<GameLevelDesignerWindow>("Level Designer Pro");
+            window.minSize = new Vector2(850, 950);
+            window.currentTab = tabIndex;
+            window.Show();
+        }
+
         #region BẢNG 18 MÀU CHUẨN
         public static readonly Color[] StandardPalette = new Color[]
         {
@@ -55,7 +63,8 @@ namespace GameLevelDesign.Editor
             "🚗 1. Bãi Đỗ Xe & Cân Bằng",
             "🎨 2. Tranh Cát 40×40 (Canvas Pro)",
             "🛣️ 3. Đường Chạy Xe (Track)",
-            "▶️ 4. Chơi Thử Trực Tiếp (Simulator)"
+            "▶️ 4. Chơi Thử Trực Tiếp (Simulator)",
+            "📐 5. Camera & Bàn Cát 3D (Cố Định & Fit)"
         };
 
         private int levelId = 1;
@@ -95,12 +104,65 @@ namespace GameLevelDesign.Editor
         private float trackGateZ = 6.2f;
 
         private Vector2 mainScrollPos;
+
+        #region CẤU HÌNH CAMERA CỐ ĐỊNH & THÍCH ỨNG TỈ LỆ
+        private Vector3 camPosition = new Vector3(0f, 18.5f, -3.5f);
+        private Vector3 camRotation = new Vector3(53f, 0f, 0f);
+        private float camBaseOrthoSize = 15f;
+        private Vector2 camRefResolution = new Vector2(750f, 1334f);
+        private CameraResolutionAdapter.AspectFitMode camFitMode = CameraResolutionAdapter.AspectFitMode.FitAll;
+        private bool camLockTransform = true;
+        #endregion
+
+        #region CẤU HÌNH BÀN CÁT 3D (SAND BOARD 40x40 & VỊ TRÍ)
+        private Vector3 sandBoardPos = new Vector3(0f, 0f, 6.0f);
+        private int sandColumns = 40;
+        private int sandRows = 40;
+        private float sandBeadSpacing = 0.5f;
+        private float sandBeadRadius = 0.13f;
+        private float sandBeadScale = 0.4f;
+        private bool sandEnableZigzag = true;
+        private float sandZigzagOffset = 0.25f;
+        private bool sandEnableRoadCutout = true;
+        private int sandCutoutColMin = 14;
+        private int sandCutoutColMax = 25;
+        private int sandCutoutRowMax = 18;
+        #endregion
+
+        #region KHÓA EDITORPREFS (LƯU TRỮ VĨNH VIỄN)
+        private const string PREF_KEY_CAM_POS_X = "DGL_CamPosX";
+        private const string PREF_KEY_CAM_POS_Y = "DGL_CamPosY";
+        private const string PREF_KEY_CAM_POS_Z = "DGL_CamPosZ";
+        private const string PREF_KEY_CAM_ROT_X = "DGL_CamRotX";
+        private const string PREF_KEY_CAM_ROT_Y = "DGL_CamRotY";
+        private const string PREF_KEY_CAM_ROT_Z = "DGL_CamRotZ";
+        private const string PREF_KEY_CAM_ORTHO = "DGL_CamOrthoSize";
+        private const string PREF_KEY_CAM_REF_W = "DGL_CamRefW";
+        private const string PREF_KEY_CAM_REF_H = "DGL_CamRefH";
+        private const string PREF_KEY_CAM_FIT_MODE = "DGL_CamFitMode";
+        private const string PREF_KEY_CAM_LOCK = "DGL_CamLockTransform";
+
+        private const string PREF_KEY_BOARD_POS_X = "DGL_BoardPosX";
+        private const string PREF_KEY_BOARD_POS_Y = "DGL_BoardPosY";
+        private const string PREF_KEY_BOARD_POS_Z = "DGL_BoardPosZ";
+        private const string PREF_KEY_BEAD_SPACING = "DGL_BeadSpacing";
+        private const string PREF_KEY_BEAD_RADIUS = "DGL_BeadRadius";
+        private const string PREF_KEY_BEAD_SCALE = "DGL_BeadScale";
+        private const string PREF_KEY_ENABLE_ZIGZAG = "DGL_EnableZigzag";
+        private const string PREF_KEY_ZIGZAG_OFFSET = "DGL_ZigzagOffset";
+        private const string PREF_KEY_ENABLE_CUTOUT = "DGL_EnableCutout";
+        private const string PREF_KEY_CUTOUT_COL_MIN = "DGL_CutoutColMin";
+        private const string PREF_KEY_CUTOUT_COL_MAX = "DGL_CutoutColMax";
+        private const string PREF_KEY_CUTOUT_ROW_MAX = "DGL_CutoutRowMax";
+        #endregion
         #endregion
 
         #region LIFECYCLE
         private void OnEnable()
         {
             wantsMouseMove = true;
+
+            LoadSettingsFromEditorPrefs();
 
             if (carGrid == null || carGrid.GetLength(0) != gridRows || carGrid.GetLength(1) != gridCols)
             {
@@ -118,6 +180,8 @@ namespace GameLevelDesign.Editor
 
         private void OnDisable()
         {
+            SaveSettingsToEditorPrefs();
+
             if (sandCanvasTex != null)
             {
                 DestroyImmediate(sandCanvasTex);
@@ -147,6 +211,9 @@ namespace GameLevelDesign.Editor
                     break;
                 case 3:
                     DrawPlayTestTab();
+                    break;
+                case 4:
+                    DrawCameraAndBoardTab();
                     break;
             }
 
@@ -519,9 +586,8 @@ namespace GameLevelDesign.Editor
                 // 2. SỐ LƯỢNG / SỨC CHỨA CỦA XE (SEATS)
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("Sức chứa / Số ghế:", GUILayout.Width(130));
-                int newCap = EditorGUILayout.IntField(cap, GUILayout.Width(65));
-                newCap = Mathf.Clamp(newCap, 1, 999);
-                newCap = (int)EditorGUILayout.Slider(newCap, 1, 200);
+                int newCap = EditorGUILayout.IntField(cap, GUILayout.Width(80));
+                newCap = Mathf.Max(1, newCap);
                 EditorGUILayout.EndHorizontal();
 
                 // Các nút chọn số lượng ghế nhanh
@@ -1199,9 +1265,8 @@ namespace GameLevelDesign.Editor
 
             UpdateSandCanvasTexture();
             RecalculateSandColorCounts();
-            AutoGenerateWinningFleet(); // Tự động sinh luôn bãi xe thắng cuộc!
             Repaint();
-            Debug.Log("<color=green>[Level Designer Pro]</color> Đã nạp thành công Mẫu Dưa Hấu (Màn 5 Chuẩn Douyin) và cân bằng xe 100%!");
+            Debug.Log("<color=green>[Level Designer Pro]</color> Đã nạp thành công Mẫu Dưa Hấu (Màn 5 Chuẩn Douyin)!");
         }
 
         private void LoadHeartPreset()
@@ -1519,11 +1584,23 @@ namespace GameLevelDesign.Editor
             GameObject worldRoot = new GameObject($"[Douyin_Level_{levelId}_Preview]");
 
             // 1. Tạo Tranh Cát 40x40 NẰM NGANG 90 ĐỘ TRÊN MẶT ĐẤT BẰNG PREFAB (Passenger.prefab)
-            Vector3 boardPos = new Vector3(0, 0, trackGateZ + 2.5f);
+            Vector3 boardPos = sandBoardPos;
             GameObject boardObj = new GameObject("SandBoard_Manager");
             boardObj.transform.SetParent(worldRoot.transform);
             boardObj.transform.position = boardPos;
             var sandMgr = boardObj.AddComponent<SandBoardManager>();
+            sandMgr.boardPosZ = sandBoardPos.z;
+            sandMgr.columns = sandColumns;
+            sandMgr.rows = sandRows;
+            sandMgr.beadSpacing = sandBeadSpacing;
+            sandMgr.beadRadius = sandBeadRadius;
+            sandMgr.beadScale = sandBeadScale;
+            sandMgr.enableZigzag = sandEnableZigzag;
+            sandMgr.zigzagOffset = sandZigzagOffset;
+            sandMgr.enableRoadCutout = sandEnableRoadCutout;
+            sandMgr.cutoutColMin = sandCutoutColMin;
+            sandMgr.cutoutColMax = sandCutoutColMax;
+            sandMgr.cutoutRowMax = sandCutoutRowMax;
             sandMgr.BuildBoard(pixelMapData, prefabData);
 
             // 2. Tạo Đường Loop Track Chữ U & Extra Car
@@ -1569,18 +1646,32 @@ namespace GameLevelDesign.Editor
 
         private void SetupPlayTestCamera(Transform parent)
         {
-            // GIỮ NGUYÊN 100% CAMERA HIỆN TẠI CỦA USER, TUYỆT ĐỐI KHÔNG TỰ Ý ĐÈ VỊ TRÍ/GÓC XOAY!
             Camera cam = Camera.main;
+            if (cam == null) cam = UnityEngine.Object.FindFirstObjectByType<Camera>();
             if (cam == null)
             {
                 GameObject camObj = new GameObject("Main Camera");
                 cam = camObj.AddComponent<Camera>();
                 camObj.tag = "MainCamera";
                 camObj.AddComponent<AudioListener>();
-                cam.transform.position = new Vector3(0f, 18.5f, -3.5f);
-                cam.transform.rotation = Quaternion.Euler(62f, 0f, 0f);
-                cam.fieldOfView = 50f;
             }
+
+            cam.orthographic = true;
+            cam.orthographicSize = camBaseOrthoSize;
+            cam.transform.position = camPosition;
+            cam.transform.rotation = Quaternion.Euler(camRotation);
+
+            var adapter = cam.GetComponent<CameraResolutionAdapter>();
+            if (adapter == null)
+            {
+                adapter = cam.gameObject.AddComponent<CameraResolutionAdapter>();
+            }
+            adapter.baseOrthoSize = camBaseOrthoSize;
+            adapter.referenceResolution = camRefResolution;
+            adapter.fitMode = camFitMode;
+            adapter.lockTransform = camLockTransform;
+            adapter.RecordFixedTransform();
+            adapter.ApplyCameraFit();
         }
 
         public void CleanupPlayTestScene()
@@ -1713,8 +1804,7 @@ namespace GameLevelDesign.Editor
                 }
             }
 
-            Debug.Log($"<color=green>[Level Designer Pro]</color> Đã sinh vừa khít {totalCars} xe trên {gridRows} hàng x {gridCols} cột!");
-            EditorUtility.DisplayDialog("Thành Công!", $"Đã sinh vừa đủ {totalCars} xe trên {gridRows} hàng x {gridCols} cột (Không còn hàng trống thừa)!\n\nLevel đã CÂN BẰNG 100% ĐIỀU KIỆN THẮNG!", "OK");
+            Debug.Log($"<color=green>[Level Designer Pro]</color> Đã sinh vừa đủ {totalCars} xe trên {gridRows} hàng x {gridCols} cột (Level đã cân bằng 100% điều kiện thắng)!");
         }
 
         private void AddVehicleSmart(int colorIdx, int cap, int mech)
@@ -2014,6 +2104,507 @@ namespace GameLevelDesign.Editor
                 return false;
             }
         }
+        #endregion
+
+        #region TAB 5: CAMERA & BÀN CÁT 3D (CỐ ĐỊNH & FIT TỈ LỆ)
+        private void DrawCameraAndBoardTab()
+        {
+            EditorGUI.BeginChangeCheck();
+
+            // CARD 1: CAMERA CỐ ĐỊNH & TỰ ĐỘNG FIT THEO TỈ LỆ
+            BeginCard("1. 📸 THIẾT LẬP CAMERA CỐ ĐỊNH & ADAPTER TỈ LỆ (CAMERA ADAPTER)", "📷", "Khóa góc nhìn cố định 100%, tự động thích ứng iPhone dài & iPad ngắn");
+
+            EditorGUILayout.LabelField("1. Tọa Độ & Góc Xoay Cố Định (Fixed Transform):", EditorStyles.boldLabel);
+            camPosition = EditorGUILayout.Vector3Field("Tọa độ Camera (Position):", camPosition);
+            camRotation = EditorGUILayout.Vector3Field("Góc xoay Camera (Euler Angles):", camRotation);
+            camLockTransform = EditorGUILayout.Toggle("🔒 Khóa cố định 100% (Lock Transform):", camLockTransform);
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("2. Kích Thước Orthographic & Chế Độ Thích Ứng (Aspect Fit):", EditorStyles.boldLabel);
+            camBaseOrthoSize = EditorGUILayout.Slider("Ortho Size chuẩn (Base Ortho):", camBaseOrthoSize, 5f, 30f);
+            camRefResolution = EditorGUILayout.Vector2Field("Độ phân giải chuẩn (Design Res):", camRefResolution);
+            camFitMode = (CameraResolutionAdapter.AspectFitMode)EditorGUILayout.EnumPopup("Chế độ thích ứng (Fit Mode):", camFitMode);
+
+            EditorGUILayout.Space(4);
+            // Bảng tính tỉ lệ mô phỏng
+            float targetAspect = camRefResolution.y > 0 ? camRefResolution.x / camRefResolution.y : (750f / 1334f);
+            float iphoneAspect = 9f / 19.5f; // ~0.4615
+            float ipadAspect = 3f / 4f;      // 0.75
+            float iphoneOrtho = camBaseOrthoSize * (targetAspect / iphoneAspect);
+            float ipadOrtho = camBaseOrthoSize;
+
+            EditorGUILayout.HelpBox(
+                $"📱 MÔ PHỎNG CO GIÃN THỰC TẾ TRÊN CÁC THIẾT BỊ:\n" +
+                $"• Chuẩn thiết kế ({camRefResolution.x:0}×{camRefResolution.y:0} - 9:16): Ortho Size = {camBaseOrthoSize:F1}\n" +
+                $"• Màn dài (iPhone 16 / Galaxy S24 Ultra - 19.5:9, ratio {iphoneAspect:F2}): Ortho Size = {iphoneOrtho:F1} (Mở rộng để giữ nguyên bề ngang 40 cột, không bị cắt 2 mép!)\n" +
+                $"• Màn ngắn (iPad / Tablet 3:4, ratio {ipadAspect:F2}): Ortho Size = {ipadOrtho:F1} (Giữ nguyên chiều cao để lề trên Bàn Cát và lề dưới Bãi Xe luôn hiển thị trọn vẹn!)",
+                MessageType.Info);
+
+            EditorGUILayout.Space(6);
+            EditorGUILayout.BeginHorizontal();
+
+            GUI.backgroundColor = new Color(0.25f, 0.9f, 0.45f);
+            if (GUILayout.Button("🎯 ÁP DỤNG VÀO CAMERA SCENE NGAY", GUILayout.Height(30)))
+            {
+                ApplyCameraSettingsToScene();
+            }
+
+            GUI.backgroundColor = new Color(0.2f, 0.75f, 1.0f);
+            if (GUILayout.Button("🔍 LẤY TỌA ĐỘ TỪ CAMERA SCENE", GUILayout.Height(30)))
+            {
+                SyncCameraSettingsFromScene();
+            }
+
+            GUI.backgroundColor = new Color(1.0f, 0.85f, 0.3f);
+            if (GUILayout.Button("↺ VỀ MẶC ĐỊNH CHUẨN", GUILayout.Height(30), GUILayout.Width(170)))
+            {
+                camPosition = new Vector3(0f, 18.5f, -3.5f);
+                camRotation = new Vector3(53f, 0f, 0f);
+                camBaseOrthoSize = 15f;
+                camRefResolution = new Vector2(750f, 1334f);
+                camFitMode = CameraResolutionAdapter.AspectFitMode.FitAll;
+                camLockTransform = true;
+                ApplyCameraSettingsToScene();
+            }
+
+            GUI.backgroundColor = Color.white;
+            EditorGUILayout.EndHorizontal();
+            EndCard();
+
+            // CARD 2: BÀN CÁT 3D & VỊ TRÍ (SAND BOARD 40x40)
+            BeginCard("2. 🏖️ THIẾT LẬP BÀN CÁT 3D & VỊ TRÍ (SAND BOARD 40×40)", "🏖️", "Căn chỉnh vị trí Z=6.0, Scale hạt, lệch Zigzag và khoét rãnh xe (trực quan theo Inspector)");
+
+            EditorGUILayout.LabelField("1. Vị Trí Bàn Cát (Board Position):", EditorStyles.boldLabel);
+            sandBoardPos = EditorGUILayout.Vector3Field("Vị trí Bàn Cát (Position):", sandBoardPos);
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("2. Kích Thước & Khoảng Cách Hạt Cát:", EditorStyles.boldLabel);
+            EditorGUILayout.BeginHorizontal();
+            sandColumns = EditorGUILayout.IntField("Số Cột (Columns):", sandColumns);
+            sandRows = EditorGUILayout.IntField("Số Hàng (Rows):", sandRows);
+            EditorGUILayout.EndHorizontal();
+
+            sandBeadSpacing = EditorGUILayout.Slider("Khoảng cách hạt (Bead Spacing):", sandBeadSpacing, 0.1f, 1.0f);
+            sandBeadRadius = EditorGUILayout.Slider("Bán kính hạt (Bead Radius):", sandBeadRadius, 0.05f, 0.5f);
+            sandBeadScale = EditorGUILayout.Slider("Scale hạt cát (Bead Scale):", sandBeadScale, 0.1f, 2.0f);
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("3. Lệch Zigzag Cát (So Le Hàng):", EditorStyles.boldLabel);
+            sandEnableZigzag = EditorGUILayout.Toggle("Bật lệch Zigzag (Enable Zigzag):", sandEnableZigzag);
+            sandZigzagOffset = EditorGUILayout.Slider("Độ lệch Zigzag (Offset):", sandZigzagOffset, -0.5f, 0.5f);
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("4. Khoét Rãnh Đường Cong Xe Chạy:", EditorStyles.boldLabel);
+            sandEnableRoadCutout = EditorGUILayout.Toggle("Khoét rãnh (Road Cutout):", sandEnableRoadCutout);
+            EditorGUILayout.BeginHorizontal();
+            sandCutoutColMin = EditorGUILayout.IntField("Cột bắt đầu (Col Min):", sandCutoutColMin);
+            sandCutoutColMax = EditorGUILayout.IntField("Cột kết thúc (Col Max):", sandCutoutColMax);
+            sandCutoutRowMax = EditorGUILayout.IntField("Hàng tối đa (Row Max):", sandCutoutRowMax);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space(6);
+            EditorGUILayout.LabelField("⚡ THAO TÁC NHANH TRỰC TIẾP TRÊN SCENE (XEM NGAY KHÔNG CẦN CHẠY GAME):", EditorStyles.boldLabel);
+
+            // Nút 1 & Nút 2 (Row 1)
+            EditorGUILayout.BeginHorizontal();
+            GUI.backgroundColor = new Color(0.2f, 0.85f, 1.0f);
+            if (GUILayout.Button("⚡ CẬP NHẬT SCALE & LỆCH ZIGZAG (XEM NGAY)", GUILayout.Height(36)))
+            {
+                ApplySandBoardSettingsToScene(updateExisting: true);
+            }
+
+            GUI.backgroundColor = new Color(0.35f, 0.95f, 0.45f);
+            if (GUILayout.Button("🔄 TÁI TẠO TOÀN BỘ TRANH CÁT (REBUILD)", GUILayout.Height(36)))
+            {
+                RebuildSandBoardInScene();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            // Nút 3 & Nút 4 (Row 2)
+            EditorGUILayout.Space(2);
+            EditorGUILayout.BeginHorizontal();
+            GUI.backgroundColor = new Color(1.0f, 0.9f, 0.3f);
+            if (GUILayout.Button("📍 ĐẶT VỊ TRÍ Z = 6.0", GUILayout.Height(28)))
+            {
+                sandBoardPos = new Vector3(sandBoardPos.x, sandBoardPos.y, 6.0f);
+                ApplySandBoardSettingsToScene(updateExisting: true);
+                Debug.Log("<color=yellow>[Level Designer]</color> Đã đặt vị trí SandBoard tại Z = 6.0!");
+            }
+
+            GUI.backgroundColor = new Color(1.0f, 0.45f, 0.45f);
+            if (GUILayout.Button("🗑️ XÓA TRANH CÁT TRÊN SCENE", GUILayout.Height(28)))
+            {
+                if (EditorUtility.DisplayDialog("Xác nhận xóa", "Bạn có chắc chắn muốn xóa toàn bộ hạt cát trên Scene không?", "Xóa", "Hủy"))
+                {
+                    ClearSandBoardInScene();
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.BeginHorizontal();
+            GUI.backgroundColor = new Color(0.2f, 0.75f, 1.0f);
+            if (GUILayout.Button("🔍 LẤY THÔNG SỐ TỪ SAND BOARD TRONG SCENE", GUILayout.Height(26)))
+            {
+                SyncSandBoardSettingsFromScene();
+            }
+
+            GUI.backgroundColor = new Color(0.35f, 0.9f, 0.6f);
+            if (GUILayout.Button("💾 GHI ĐÈ VÀO SAND BOARD TRONG SCENE", GUILayout.Height(26)))
+            {
+                ApplySandBoardSettingsToScene(updateExisting: true);
+            }
+            GUI.backgroundColor = Color.white;
+            EditorGUILayout.EndHorizontal();
+
+            EndCard();
+
+            // CARD 3: LƯU TRỮ VĨNH VIỄN & KHÔI PHỤC
+            BeginCard("3. 💾 LƯU TRỮ VĨNH VIỄN & KHÔI PHỤC (PERSISTENCE)", "💾", "Mọi thay đổi được lưu vào EditorPrefs, lần sau mở tool lên sẽ giữ nguyên 100%!");
+
+            EditorGUILayout.HelpBox("✅ Trạng thái: Toàn bộ thông số Camera & Bàn Cát đang được tự động đồng bộ và lưu vào EditorPrefs. Khi bạn tắt Unity hay mở lại Tool, các giá trị này không bao giờ bị mất!", MessageType.None);
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.BeginHorizontal();
+            GUI.backgroundColor = new Color(0.2f, 0.85f, 0.4f);
+            if (GUILayout.Button("💾 LƯU THIẾT LẬP NÀY LÀM MẶC ĐỊNH NGAY", GUILayout.Height(30)))
+            {
+                SaveSettingsToEditorPrefs();
+                Debug.Log("<color=green>[Level Designer]</color> Đã lưu toàn bộ thông số Camera & Bàn Cát vào EditorPrefs thành công!");
+            }
+
+            GUI.backgroundColor = new Color(1.0f, 0.5f, 0.5f);
+            if (GUILayout.Button("↺ KHÔI PHỤC THIẾT LẬP CHUẨN GỐC BAN ĐẦU", GUILayout.Height(30)))
+            {
+                if (EditorUtility.DisplayDialog("Xác nhận", "Khôi phục toàn bộ cấu hình Camera và Bàn Cát về giá trị gốc của trò chơi?", "Khôi phục", "Hủy"))
+                {
+                    ResetSettingsToDefaults();
+                    ApplyCameraSettingsToScene();
+                    ApplySandBoardSettingsToScene(updateExisting: true);
+                }
+            }
+            GUI.backgroundColor = Color.white;
+            EditorGUILayout.EndHorizontal();
+
+            EndCard();
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                SaveSettingsToEditorPrefs();
+            }
+        }
+
+        #region XỬ LÝ LƯU TRỮ EDITORPREFS & ĐỒNG BỘ SCENE
+        public void SaveSettingsToEditorPrefs()
+        {
+            EditorPrefs.SetFloat(PREF_KEY_CAM_POS_X, camPosition.x);
+            EditorPrefs.SetFloat(PREF_KEY_CAM_POS_Y, camPosition.y);
+            EditorPrefs.SetFloat(PREF_KEY_CAM_POS_Z, camPosition.z);
+            EditorPrefs.SetFloat(PREF_KEY_CAM_ROT_X, camRotation.x);
+            EditorPrefs.SetFloat(PREF_KEY_CAM_ROT_Y, camRotation.y);
+            EditorPrefs.SetFloat(PREF_KEY_CAM_ROT_Z, camRotation.z);
+            EditorPrefs.SetFloat(PREF_KEY_CAM_ORTHO, camBaseOrthoSize);
+            EditorPrefs.SetFloat(PREF_KEY_CAM_REF_W, camRefResolution.x);
+            EditorPrefs.SetFloat(PREF_KEY_CAM_REF_H, camRefResolution.y);
+            EditorPrefs.SetInt(PREF_KEY_CAM_FIT_MODE, (int)camFitMode);
+            EditorPrefs.SetBool(PREF_KEY_CAM_LOCK, camLockTransform);
+
+            EditorPrefs.SetFloat(PREF_KEY_BOARD_POS_X, sandBoardPos.x);
+            EditorPrefs.SetFloat(PREF_KEY_BOARD_POS_Y, sandBoardPos.y);
+            EditorPrefs.SetFloat(PREF_KEY_BOARD_POS_Z, sandBoardPos.z);
+            EditorPrefs.SetFloat(PREF_KEY_BEAD_SPACING, sandBeadSpacing);
+            EditorPrefs.SetFloat(PREF_KEY_BEAD_RADIUS, sandBeadRadius);
+            EditorPrefs.SetFloat(PREF_KEY_BEAD_SCALE, sandBeadScale);
+            EditorPrefs.SetBool(PREF_KEY_ENABLE_ZIGZAG, sandEnableZigzag);
+            EditorPrefs.SetFloat(PREF_KEY_ZIGZAG_OFFSET, sandZigzagOffset);
+            EditorPrefs.SetBool(PREF_KEY_ENABLE_CUTOUT, sandEnableRoadCutout);
+            EditorPrefs.SetInt(PREF_KEY_CUTOUT_COL_MIN, sandCutoutColMin);
+            EditorPrefs.SetInt(PREF_KEY_CUTOUT_COL_MAX, sandCutoutColMax);
+            EditorPrefs.SetInt(PREF_KEY_CUTOUT_ROW_MAX, sandCutoutRowMax);
+        }
+
+        public void LoadSettingsFromEditorPrefs()
+        {
+            if (EditorPrefs.HasKey(PREF_KEY_CAM_POS_X))
+            {
+                camPosition = new Vector3(
+                    EditorPrefs.GetFloat(PREF_KEY_CAM_POS_X, 0f),
+                    EditorPrefs.GetFloat(PREF_KEY_CAM_POS_Y, 18.5f),
+                    EditorPrefs.GetFloat(PREF_KEY_CAM_POS_Z, -3.5f)
+                );
+            }
+            if (EditorPrefs.HasKey(PREF_KEY_CAM_ROT_X))
+            {
+                camRotation = new Vector3(
+                    EditorPrefs.GetFloat(PREF_KEY_CAM_ROT_X, 53f),
+                    EditorPrefs.GetFloat(PREF_KEY_CAM_ROT_Y, 0f),
+                    EditorPrefs.GetFloat(PREF_KEY_CAM_ROT_Z, 0f)
+                );
+            }
+            if (EditorPrefs.HasKey(PREF_KEY_CAM_ORTHO)) camBaseOrthoSize = EditorPrefs.GetFloat(PREF_KEY_CAM_ORTHO, 15f);
+            if (EditorPrefs.HasKey(PREF_KEY_CAM_REF_W))
+            {
+                camRefResolution = new Vector2(
+                    EditorPrefs.GetFloat(PREF_KEY_CAM_REF_W, 750f),
+                    EditorPrefs.GetFloat(PREF_KEY_CAM_REF_H, 1334f)
+                );
+            }
+            if (EditorPrefs.HasKey(PREF_KEY_CAM_FIT_MODE)) camFitMode = (CameraResolutionAdapter.AspectFitMode)EditorPrefs.GetInt(PREF_KEY_CAM_FIT_MODE, 0);
+            if (EditorPrefs.HasKey(PREF_KEY_CAM_LOCK)) camLockTransform = EditorPrefs.GetBool(PREF_KEY_CAM_LOCK, true);
+
+            if (EditorPrefs.HasKey(PREF_KEY_BOARD_POS_X))
+            {
+                sandBoardPos = new Vector3(
+                    EditorPrefs.GetFloat(PREF_KEY_BOARD_POS_X, 0f),
+                    EditorPrefs.GetFloat(PREF_KEY_BOARD_POS_Y, 0f),
+                    EditorPrefs.GetFloat(PREF_KEY_BOARD_POS_Z, 6f)
+                );
+            }
+            if (EditorPrefs.HasKey(PREF_KEY_BEAD_SPACING)) sandBeadSpacing = EditorPrefs.GetFloat(PREF_KEY_BEAD_SPACING, 0.5f);
+            if (EditorPrefs.HasKey(PREF_KEY_BEAD_RADIUS)) sandBeadRadius = EditorPrefs.GetFloat(PREF_KEY_BEAD_RADIUS, 0.13f);
+            if (EditorPrefs.HasKey(PREF_KEY_BEAD_SCALE)) sandBeadScale = EditorPrefs.GetFloat(PREF_KEY_BEAD_SCALE, 0.4f);
+            if (EditorPrefs.HasKey(PREF_KEY_ENABLE_ZIGZAG)) sandEnableZigzag = EditorPrefs.GetBool(PREF_KEY_ENABLE_ZIGZAG, true);
+            if (EditorPrefs.HasKey(PREF_KEY_ZIGZAG_OFFSET)) sandZigzagOffset = EditorPrefs.GetFloat(PREF_KEY_ZIGZAG_OFFSET, 0.25f);
+            if (EditorPrefs.HasKey(PREF_KEY_ENABLE_CUTOUT)) sandEnableRoadCutout = EditorPrefs.GetBool(PREF_KEY_ENABLE_CUTOUT, true);
+            if (EditorPrefs.HasKey(PREF_KEY_CUTOUT_COL_MIN)) sandCutoutColMin = EditorPrefs.GetInt(PREF_KEY_CUTOUT_COL_MIN, 14);
+            if (EditorPrefs.HasKey(PREF_KEY_CUTOUT_COL_MAX)) sandCutoutColMax = EditorPrefs.GetInt(PREF_KEY_CUTOUT_COL_MAX, 25);
+            if (EditorPrefs.HasKey(PREF_KEY_CUTOUT_ROW_MAX)) sandCutoutRowMax = EditorPrefs.GetInt(PREF_KEY_CUTOUT_ROW_MAX, 18);
+        }
+
+        public void ResetSettingsToDefaults()
+        {
+            camPosition = new Vector3(0f, 18.5f, -3.5f);
+            camRotation = new Vector3(53f, 0f, 0f);
+            camBaseOrthoSize = 15f;
+            camRefResolution = new Vector2(750f, 1334f);
+            camFitMode = CameraResolutionAdapter.AspectFitMode.FitAll;
+            camLockTransform = true;
+
+            sandBoardPos = new Vector3(0f, 0f, 6.0f);
+            sandColumns = 40;
+            sandRows = 40;
+            sandBeadSpacing = 0.5f;
+            sandBeadRadius = 0.13f;
+            sandBeadScale = 0.4f;
+            sandEnableZigzag = true;
+            sandZigzagOffset = 0.25f;
+            sandEnableRoadCutout = true;
+            sandCutoutColMin = 14;
+            sandCutoutColMax = 25;
+            sandCutoutRowMax = 18;
+
+            SaveSettingsToEditorPrefs();
+        }
+
+        private void AutoLiveUpdateScene()
+        {
+            Camera cam = Camera.main;
+            if (cam == null) cam = UnityEngine.Object.FindFirstObjectByType<Camera>();
+            if (cam != null)
+            {
+                cam.orthographic = true;
+                cam.orthographicSize = camBaseOrthoSize;
+                cam.transform.position = camPosition;
+                cam.transform.rotation = Quaternion.Euler(camRotation);
+
+                var adapter = cam.GetComponent<CameraResolutionAdapter>();
+                if (adapter != null)
+                {
+                    adapter.baseOrthoSize = camBaseOrthoSize;
+                    adapter.referenceResolution = camRefResolution;
+                    adapter.fitMode = camFitMode;
+                    adapter.lockTransform = camLockTransform;
+                    adapter.ApplyCameraFit();
+                }
+            }
+
+            SandBoardManager sandMgr = SandBoardManager.Instance;
+            if (sandMgr == null) sandMgr = UnityEngine.Object.FindFirstObjectByType<SandBoardManager>();
+            if (sandMgr != null)
+            {
+                sandMgr.transform.position = sandBoardPos;
+                sandMgr.boardPosZ = sandBoardPos.z;
+                sandMgr.columns = sandColumns;
+                sandMgr.rows = sandRows;
+                sandMgr.beadSpacing = sandBeadSpacing;
+                sandMgr.beadRadius = sandBeadRadius;
+                sandMgr.beadScale = sandBeadScale;
+                sandMgr.enableZigzag = sandEnableZigzag;
+                sandMgr.zigzagOffset = sandZigzagOffset;
+                sandMgr.enableRoadCutout = sandEnableRoadCutout;
+                sandMgr.cutoutColMin = sandCutoutColMin;
+                sandMgr.cutoutColMax = sandCutoutColMax;
+                sandMgr.cutoutRowMax = sandCutoutRowMax;
+
+                if (sandMgr.transform.childCount > 0)
+                {
+                    sandMgr.UpdateExistingBeads();
+                }
+            }
+
+            SceneView.RepaintAll();
+        }
+
+        public void ApplyCameraSettingsToScene()
+        {
+            Camera cam = Camera.main;
+            if (cam == null) cam = UnityEngine.Object.FindFirstObjectByType<Camera>();
+            if (cam == null)
+            {
+                EditorUtility.DisplayDialog("Thông báo", "Không tìm thấy Camera nào trong Scene!", "OK");
+                return;
+            }
+
+            Undo.RecordObject(cam.transform, "Apply Camera Settings");
+            Undo.RecordObject(cam, "Apply Camera Settings");
+
+            cam.orthographic = true;
+            cam.orthographicSize = camBaseOrthoSize;
+            cam.transform.position = camPosition;
+            cam.transform.rotation = Quaternion.Euler(camRotation);
+
+            var adapter = cam.GetComponent<CameraResolutionAdapter>();
+            if (adapter == null)
+            {
+                adapter = Undo.AddComponent<CameraResolutionAdapter>(cam.gameObject);
+            }
+
+            Undo.RecordObject(adapter, "Apply Camera Settings");
+            adapter.baseOrthoSize = camBaseOrthoSize;
+            adapter.referenceResolution = camRefResolution;
+            adapter.fitMode = camFitMode;
+            adapter.lockTransform = camLockTransform;
+            adapter.RecordFixedTransform();
+            adapter.ApplyCameraFit();
+
+            EditorUtility.SetDirty(cam.gameObject);
+            SceneView.RepaintAll();
+            Debug.Log($"<color=green>[Level Designer]</color> Đã áp dụng thiết lập vào Camera '{cam.name}' thành công!");
+        }
+
+        public void SyncCameraSettingsFromScene()
+        {
+            Camera cam = Camera.main;
+            if (cam == null) cam = UnityEngine.Object.FindFirstObjectByType<Camera>();
+            if (cam == null)
+            {
+                EditorUtility.DisplayDialog("Thông báo", "Không tìm thấy Camera nào trong Scene!", "OK");
+                return;
+            }
+
+            camPosition = cam.transform.position;
+            camRotation = cam.transform.eulerAngles;
+            camBaseOrthoSize = cam.orthographicSize;
+
+            var adapter = cam.GetComponent<CameraResolutionAdapter>();
+            if (adapter != null)
+            {
+                camBaseOrthoSize = adapter.baseOrthoSize;
+                camRefResolution = adapter.referenceResolution;
+                camFitMode = adapter.fitMode;
+                camLockTransform = adapter.lockTransform;
+            }
+
+            SaveSettingsToEditorPrefs();
+            Debug.Log($"<color=cyan>[Level Designer]</color> Đã đồng bộ thông số từ Camera '{cam.name}' vào Tool!");
+        }
+
+        public void ApplySandBoardSettingsToScene(bool updateExisting = true)
+        {
+            SandBoardManager sandMgr = SandBoardManager.Instance;
+            if (sandMgr == null) sandMgr = UnityEngine.Object.FindFirstObjectByType<SandBoardManager>();
+            if (sandMgr == null)
+            {
+                EditorUtility.DisplayDialog("Thông báo", "Không tìm thấy SandBoardManager nào trong Scene!", "OK");
+                return;
+            }
+
+            Undo.RecordObject(sandMgr.transform, "Apply Sand Board Settings");
+            Undo.RecordObject(sandMgr, "Apply Sand Board Settings");
+
+            sandMgr.transform.position = sandBoardPos;
+            sandMgr.boardPosZ = sandBoardPos.z;
+            sandMgr.columns = sandColumns;
+            sandMgr.rows = sandRows;
+            sandMgr.beadSpacing = sandBeadSpacing;
+            sandMgr.beadRadius = sandBeadRadius;
+            sandMgr.beadScale = sandBeadScale;
+            sandMgr.enableZigzag = sandEnableZigzag;
+            sandMgr.zigzagOffset = sandZigzagOffset;
+            sandMgr.enableRoadCutout = sandEnableRoadCutout;
+            sandMgr.cutoutColMin = sandCutoutColMin;
+            sandMgr.cutoutColMax = sandCutoutColMax;
+            sandMgr.cutoutRowMax = sandCutoutRowMax;
+
+            if (updateExisting && sandMgr.transform.childCount > 0)
+            {
+                sandMgr.UpdateExistingBeads();
+            }
+
+            EditorUtility.SetDirty(sandMgr.gameObject);
+            SceneView.RepaintAll();
+            Debug.Log("<color=green>[Level Designer]</color> Đã áp dụng thông số vào SandBoardManager trong Scene!");
+        }
+
+        public void SyncSandBoardSettingsFromScene()
+        {
+            SandBoardManager sandMgr = SandBoardManager.Instance;
+            if (sandMgr == null) sandMgr = UnityEngine.Object.FindFirstObjectByType<SandBoardManager>();
+            if (sandMgr == null)
+            {
+                EditorUtility.DisplayDialog("Thông báo", "Không tìm thấy SandBoardManager trong Scene!", "OK");
+                return;
+            }
+
+            sandBoardPos = sandMgr.transform.position;
+            sandBoardPos.z = sandMgr.boardPosZ;
+            sandColumns = sandMgr.columns;
+            sandRows = sandMgr.rows;
+            sandBeadSpacing = sandMgr.beadSpacing;
+            sandBeadRadius = sandMgr.beadRadius;
+            sandBeadScale = sandMgr.beadScale;
+            sandEnableZigzag = sandMgr.enableZigzag;
+            sandZigzagOffset = sandMgr.zigzagOffset;
+            sandEnableRoadCutout = sandMgr.enableRoadCutout;
+            sandCutoutColMin = sandMgr.cutoutColMin;
+            sandCutoutColMax = sandMgr.cutoutColMax;
+            sandCutoutRowMax = sandMgr.cutoutRowMax;
+
+            SaveSettingsToEditorPrefs();
+            Debug.Log("<color=cyan>[Level Designer]</color> Đã đồng bộ thông số từ SandBoardManager trong Scene vào Tool!");
+        }
+
+        private void RebuildSandBoardInScene()
+        {
+            SandBoardManager sandMgr = SandBoardManager.Instance;
+            if (sandMgr == null) sandMgr = UnityEngine.Object.FindFirstObjectByType<SandBoardManager>();
+            if (sandMgr == null)
+            {
+                EditorUtility.DisplayDialog("Thông báo", "Không tìm thấy SandBoardManager trong Scene!", "OK");
+                return;
+            }
+
+            ApplySandBoardSettingsToScene(updateExisting: false);
+            sandMgr.RebuildBoardInEditor();
+            SceneView.RepaintAll();
+            Debug.Log("<color=green>[Level Designer]</color> Đã tái tạo toàn bộ tranh cát trong Scene!");
+        }
+
+        private void ClearSandBoardInScene()
+        {
+            SandBoardManager sandMgr = SandBoardManager.Instance;
+            if (sandMgr == null) sandMgr = UnityEngine.Object.FindFirstObjectByType<SandBoardManager>();
+            if (sandMgr == null)
+            {
+                EditorUtility.DisplayDialog("Thông báo", "Không tìm thấy SandBoardManager trong Scene!", "OK");
+                return;
+            }
+
+            sandMgr.ClearBoard();
+            SceneView.RepaintAll();
+            Debug.Log("<color=yellow>[Level Designer]</color> Đã xóa sạch hạt cát trên Scene!");
+        }
+        #endregion
         #endregion
 
         #region TIỆN ÍCH STYLE GIAO DIỆN HIỆN ĐẠI (UI HELPERS)

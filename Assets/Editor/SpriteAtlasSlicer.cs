@@ -63,6 +63,11 @@ namespace DouyinGame.Editor
                     SliceComboAtlas(assetPath);
                     slicedCount++;
                 }
+                else if (fileName == "179083719488184.png")
+                {
+                    SliceSlotCardAtlas(assetPath);
+                    slicedCount++;
+                }
                 else
                 {
                     // Auto-slice other packed atlases
@@ -199,6 +204,38 @@ namespace DouyinGame.Editor
                     $"Combo_{i}",
                     new Rect(i * 54, 0, 54, 57)
                 ));
+            }
+
+            ApplySpriteRects(assetPath, rects);
+            ExportSpritePNGs(assetPath, texture, rects);
+            UnityEngine.Object.DestroyImmediate(texture);
+        }
+
+        /// <summary>
+        /// 179083719488184.png (256x384):
+        /// - 6 color card/slot backgrounds in 2 cols x 3 rows (W=128, H=128)
+        /// - Row 0 (Top): Yellow (left), Blue (right)
+        /// - Row 1 (Mid): Cyan (left), Orange (right)
+        /// - Row 2 (Bot): Powder/Beige (left), Powder/Beige (right)
+        /// </summary>
+        private static void SliceSlotCardAtlas(string assetPath)
+        {
+            var texture = LoadReadableTexture(assetPath);
+            if (texture == null) return;
+
+            var rects = new List<SpriteRect>();
+            int idx = 0;
+            // Unity Y coords: Top row = 256, Mid row = 128, Bot row = 0
+            for (int r = 2; r >= 0; r--)
+            {
+                for (int c = 0; c < 2; c++)
+                {
+                    rects.Add(CreateSpriteRect(
+                        $"{Path.GetFileNameWithoutExtension(assetPath)}_{idx}",
+                        new Rect(c * 128, r * 128, 128, 128)
+                    ));
+                    idx++;
+                }
             }
 
             ApplySpriteRects(assetPath, rects);
