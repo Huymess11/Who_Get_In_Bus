@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class CameraResolutionAdapter : MonoBehaviour
+namespace WhoGetInBus.GamePlay
+{
+    public class CameraResolutionAdapter : MonoBehaviour
 {
     public enum AspectFitMode
     {
@@ -215,4 +217,5 @@ public class CameraResolutionAdapter : MonoBehaviour
             Gizmos.matrix = originalMatrix;
         }
 #endif
+    }
 }

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DouyinGame.GamePlay
+namespace WhoGetInBus.GamePlay
 {
     public class LoopTrackSystem : MonoBehaviour
     {
@@ -90,7 +90,7 @@ namespace DouyinGame.GamePlay
             tailCar1.isMerging = true;
             tailCar2.isMerging = true;
 
-            Debug.Log($"<color=cyan>⚡ [LUẬT DOUYIN]</color> Phát hiện 3 xe thường màu {color} trên đường! Bắt đầu gộp thành EXTRA CAR 2 tầng!");
+            Debug.Log($"<color=cyan>⚡ [GỘP XE]</color> Phát hiện 3 xe thường màu {color} trên đường! Bắt đầu gộp thành EXTRA CAR 2 tầng!");
 
             Vector3 startP1 = tailCar1.transform.position;
             Vector3 startP2 = tailCar2.transform.position;

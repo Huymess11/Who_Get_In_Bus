@@ -1,8 +1,8 @@
 using UnityEngine;
 using UnityEditor;
-using DouyinGame.GamePlay;
+using WhoGetInBus.GamePlay;
 
-namespace DouyinGame.Editor
+namespace WhoGetInBus.Editor
 {
     [CustomEditor(typeof(SandBoardManager))]
     public class SandBoardManagerEditor : UnityEditor.Editor

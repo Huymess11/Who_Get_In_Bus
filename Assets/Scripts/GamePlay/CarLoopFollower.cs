@@ -1,7 +1,7 @@
 using UnityEngine;
 using TMPro;
 
-namespace DouyinGame.GamePlay
+namespace WhoGetInBus.GamePlay
 {
     public class CarLoopFollower : MonoBehaviour
     {
@@ -211,9 +211,9 @@ namespace DouyinGame.GamePlay
                 LoopTrackSystem.Instance.UnregisterCarFromTrack(this);
             }
             gameObject.SetActive(false);
-            if (DouyinGameManager.Instance != null)
+            if (GameManager.Instance != null)
             {
-                DouyinGameManager.Instance.OnCarCompleted(this);
+                GameManager.Instance.OnCarCompleted(this);
             }
         }
     }

@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DouyinGame.GamePlay
+namespace WhoGetInBus.GamePlay
 {
-    public class DouyinGameManager : MonoBehaviour
+    public class GameManager : MonoBehaviour
     {
-        public static DouyinGameManager Instance { get; private set; }
+        public static GameManager Instance { get; private set; }
 
         public enum PlayState
         {
@@ -38,13 +38,13 @@ namespace DouyinGame.GamePlay
             currentState = PlayState.Playing;
             completedCarsCount = 0;
             playTime = 0f;
-            Debug.Log("<color=green>[DouyinGameManager]</color> Trò chơi BẮT ĐẦU! Click vào xe ở bãi đỗ để xuất bến đón khách!");
+            Debug.Log("<color=green>[GameManager]</color> Trò chơi BẮT ĐẦU! Click vào xe ở bãi đỗ để xuất bến đón khách!");
         }
 
         public void OnCarCompleted(CarLoopFollower car)
         {
             completedCarsCount++;
-            Debug.Log($"<color=green>[DouyinGameManager]</color> Xe {car.name} đã gom đủ 100% khách và rời màn thành công! (Tổng xe thoát: {completedCarsCount})");
+            Debug.Log($"<color=green>[GameManager]</color> Xe {car.name} đã gom đủ 100% khách và rời màn thành công! (Tổng xe thoát: {completedCarsCount})");
         }
 
         public void OnLevelVictory()
@@ -73,7 +73,7 @@ namespace DouyinGame.GamePlay
             GUI.backgroundColor = new Color(0.1f, 0.15f, 0.25f, 0.85f);
             GUILayout.BeginArea(new Rect(20, 20, 320, 140), boxStyle);
 
-            GUILayout.Label("🎮 DOUYIN MINI GAME - CHƠI THỬ TRỰC TIẾP", boldLabel);
+            GUILayout.Label("🎮 MINI GAME - CHƠI THỬ TRỰC TIẾP", boldLabel);
             GUILayout.Space(4);
 
             int remainingBeads = SandBoardManager.Instance != null ? SandBoardManager.Instance.TotalRemainingBeads : 0;

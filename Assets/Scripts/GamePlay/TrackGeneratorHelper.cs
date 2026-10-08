@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DouyinGame.GamePlay
+namespace WhoGetInBus.GamePlay
 {
     public static class TrackGeneratorHelper
     {
@@ -72,7 +72,7 @@ namespace DouyinGame.GamePlay
                 trackSys.exitWaypoints.Add(wp.transform);
             }
 
-            Debug.Log("<color=green>[TrackGeneratorHelper]</color> Đã tạo thành công Hệ Thống Đường Loop Chữ U Chuẩn Douyin!");
+            Debug.Log("<color=green>[TrackGeneratorHelper]</color> Đã tạo thành công Hệ Thống Đường Loop Chữ U Chuẩn!");
             return trackSys;
         }
     }

@@ -146,7 +146,7 @@ namespace GameDesign.Editor
             Undo.RegisterCreatedObjectUndo(envRoot, "Create [Environment]");
 
             // 1. Purple Road Base (Bãi đỗ xe phía dưới)
-            Texture2D purpleRoadTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Douyin_Extracted/textures/Map_Road_Purple_Base.png");
+            Texture2D purpleRoadTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/REF/textures/Map_Road_Purple_Base.png");
             Material purpleRoadMat = CreateMaterialWithTexture("Mat_Road_Purple_Base", purpleRoadTex);
 
             GameObject purpleBase = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -159,7 +159,7 @@ namespace GameDesign.Editor
             if (purpleRoadMat != null) purpleBase.GetComponent<MeshRenderer>().sharedMaterial = purpleRoadMat;
 
             // 2. Track Loop Grey Slot (Vòng cua rãnh xám phía trên)
-            Texture2D trackTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Douyin_Extracted/textures/Track_Loop_Grey_Slot.png");
+            Texture2D trackTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/REF/textures/Track_Loop_Grey_Slot.png");
             Material trackMat = CreateMaterialWithTexture("Mat_Track_Grey_Slot", trackTex);
 
             GameObject trackLoop = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -172,7 +172,7 @@ namespace GameDesign.Editor
             if (trackMat != null) trackLoop.GetComponent<MeshRenderer>().sharedMaterial = trackMat;
 
             // 3. Canopy Arch (Mái vòm trạm đón xe)
-            Texture2D canopyTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Douyin_Extracted/textures/Map_Canopy_Arch.png");
+            Texture2D canopyTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/REF/textures/Map_Canopy_Arch.png");
             Material canopyMat = CreateMaterialWithTexture("Mat_Canopy_Arch", canopyTex);
 
             GameObject canopy = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -185,7 +185,7 @@ namespace GameDesign.Editor
             if (canopyMat != null) canopy.GetComponent<MeshRenderer>().sharedMaterial = canopyMat;
 
             // 4. Bonsai Trees (Cây cảnh bên đường)
-            Texture2D treeTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Douyin_Extracted/textures/Map_Tree_Planter.png");
+            Texture2D treeTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/REF/textures/Map_Tree_Planter.png");
             Material treeMat = CreateMaterialWithTexture("Mat_Tree_Planter", treeTex);
 
             float[] treeZPositions = new float[] { -5f, 0f, 5f, 10f, 15f };
@@ -245,7 +245,7 @@ namespace GameDesign.Editor
             GameObject extraCarPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Extra Car.prefab");
             if (carPrefab == null)
             {
-                Debug.LogError("[DouyinSceneSpawner] Không tìm thấy Car.prefab tại Assets/Prefabs/Car.prefab!");
+                Debug.LogError("[GameSceneSpawner] Không tìm thấy Car.prefab tại Assets/Prefabs/Car.prefab!");
                 return;
             }
 

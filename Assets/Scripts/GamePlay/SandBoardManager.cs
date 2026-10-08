@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-namespace DouyinGame.GamePlay
+namespace WhoGetInBus.GamePlay
 {
     public class SandBoardManager : MonoBehaviour
     {
@@ -551,9 +551,9 @@ namespace DouyinGame.GamePlay
 
             if (totalRemainingBeads <= 0)
             {
-                if (DouyinGameManager.Instance != null)
+                if (GameManager.Instance != null)
                 {
-                    DouyinGameManager.Instance.OnLevelVictory();
+                    GameManager.Instance.OnLevelVictory();
                 }
             }
         }

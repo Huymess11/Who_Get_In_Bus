@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-namespace DouyinGame.GamePlay
+namespace WhoGetInBus.GamePlay
 {
     public class ParkingLotManager : MonoBehaviour
     {

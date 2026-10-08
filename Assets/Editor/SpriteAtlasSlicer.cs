@@ -6,14 +6,14 @@ using UnityEditor;
 using UnityEditor.U2D.Sprites;
 using UnityEngine;
 
-namespace DouyinGame.Editor
+namespace WhoGetInBus.Editor
 {
     public static class SpriteAtlasSlicer
     {
         private const string TexturesDir = "Assets/REF/Textures";
         private const string OutputDir = "Assets/REF/Sliced_Sprites";
 
-        [MenuItem("Douyin/Slice All Textures and Export PNGs")]
+        [MenuItem("Tools/Slice All Textures and Export PNGs")]
         public static void SliceAll()
         {
             try

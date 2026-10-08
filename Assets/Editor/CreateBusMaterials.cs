@@ -3,7 +3,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace DouyinGame.Editor
+namespace WhoGetInBus.Editor
 {
     public static class CreateBusMaterials
     {

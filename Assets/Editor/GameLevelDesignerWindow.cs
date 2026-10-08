@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEditor;
-using DouyinGame.GamePlay;
+using WhoGetInBus.GamePlay;
 
 namespace GameLevelDesign.Editor
 {
@@ -173,7 +173,7 @@ namespace GameLevelDesign.Editor
 
             if (sandColorCounts.Count == 0)
             {
-                // Mặc định nạp mẫu Dưa Hấu (Watermelon Level 5) chuẩn Douyin từ ảnh của người dùng!
+                // Mặc định nạp mẫu Dưa Hấu (Watermelon Level 5) từ ảnh của người dùng!
                 LoadWatermelonPreset();
             }
         }
@@ -236,7 +236,7 @@ namespace GameLevelDesign.Editor
             EditorGUILayout.BeginHorizontal();
 
             GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 16, normal = { textColor = new Color(0.1f, 0.85f, 1.0f) } };
-            GUILayout.Label("🎮 DOUYIN LEVEL DESIGNER PRO", titleStyle);
+            GUILayout.Label("🎮 LEVEL DESIGNER PRO", titleStyle);
 
             GUILayout.FlexibleSpace();
 
@@ -795,9 +795,9 @@ namespace GameLevelDesign.Editor
 
             // NẠP PRESET VÀ IMPORT PNG
             EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Mẫu Douyin:", EditorStyles.boldLabel, GUILayout.Width(80));
+            EditorGUILayout.LabelField("Mẫu có sẵn:", EditorStyles.boldLabel, GUILayout.Width(80));
             GUI.backgroundColor = new Color(0.95f, 0.35f, 0.45f);
-            if (GUILayout.Button("🍉 Màn 5: Dưa Hấu (Douyin)", GUILayout.Width(170), GUILayout.Height(24))) LoadWatermelonPreset();
+            if (GUILayout.Button("🍉 Màn 5: Dưa Hấu", GUILayout.Width(170), GUILayout.Height(24))) LoadWatermelonPreset();
             GUI.backgroundColor = new Color(0.2f, 0.8f, 1.0f);
             if (GUILayout.Button("🐬 Màn 4: Cá Heo", GUILayout.Width(110), GUILayout.Height(24))) LoadPresetImage("Assets/Level/13.png");
             GUI.backgroundColor = Color.white;
@@ -1266,7 +1266,7 @@ namespace GameLevelDesign.Editor
             UpdateSandCanvasTexture();
             RecalculateSandColorCounts();
             Repaint();
-            Debug.Log("<color=green>[Level Designer Pro]</color> Đã nạp thành công Mẫu Dưa Hấu (Màn 5 Chuẩn Douyin)!");
+            Debug.Log("<color=green>[Level Designer Pro]</color> Đã nạp thành công Mẫu Dưa Hấu (Màn 5)!");
         }
 
         private void LoadHeartPreset()
@@ -1365,7 +1365,7 @@ namespace GameLevelDesign.Editor
             EditorGUILayout.Space(8);
             EditorGUILayout.LabelField("Thiết Lập Sẵn (Presets):", EditorStyles.boldLabel);
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("⭐ U-Loop Chuẩn Douyin (5.2m)", GUILayout.Height(30)))
+            if (GUILayout.Button("⭐ U-Loop Chuẩn (5.2m)", GUILayout.Height(30)))
             {
                 trackLoopRadius = 5.2f;
                 trackGateZ = 6.2f;
@@ -1557,7 +1557,7 @@ namespace GameLevelDesign.Editor
             EndCard();
 
             // CARD 4: HƯỚNG DẪN ĐIỀU KHIỂN & LUẬT CHƠI
-            BeginCard("4. 💡 HƯỚNG DẪN LUẬT CHƠI & ĐIỀU KHIỂN", "ℹ️", "Cơ chế chuẩn theo game gốc Douyin");
+            BeginCard("4. 💡 HƯỚNG DẪN LUẬT CHƠI & ĐIỀU KHIỂN", "ℹ️", "Cơ chế chuẩn");
             EditorGUILayout.HelpBox(
                 "• 1. Bấm chuột trái vào xe ở HÀNG 1 của Bãi đỗ xe để đưa xe vào đường đua chữ U.\n" +
                 "• 2. GỘP XE: Khi có 3 xe cùng màu trên đường đua, chúng sẽ tự động bay lại gần và gộp thành 1 xe Extra Car 2 tầng (sức chứa cộng dồn)!\n" +
@@ -1581,7 +1581,7 @@ namespace GameLevelDesign.Editor
             }
 
             // Tạo GameObject gốc cho Level Preview
-            GameObject worldRoot = new GameObject($"[Douyin_Level_{levelId}_Preview]");
+            GameObject worldRoot = new GameObject($"[Level_{levelId}_Preview]");
 
             // 1. Tạo Tranh Cát 40x40 NẰM NGANG 90 ĐỘ TRÊN MẶT ĐẤT BẰNG PREFAB (Passenger.prefab)
             Vector3 boardPos = sandBoardPos;
@@ -1634,7 +1634,7 @@ namespace GameLevelDesign.Editor
 
             if (enterPlayMode)
             {
-                var gm = worldRoot.AddComponent<DouyinGameManager>();
+                var gm = worldRoot.AddComponent<GameManager>();
                 gm.StartGame();
                 Debug.Log($"<color=green>[Level Designer Pro]</color> Đã dựng Scene và BẮT ĐẦU CHƠI THỬ Level {levelId}!");
             }
@@ -1680,7 +1680,7 @@ namespace GameLevelDesign.Editor
             var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
             foreach (var r in roots)
             {
-                if (r.name.StartsWith("[Douyin_"))
+                if (r.name.StartsWith("[Level_"))
                 {
                     DestroyImmediate(r);
                 }

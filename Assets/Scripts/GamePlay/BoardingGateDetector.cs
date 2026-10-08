@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DouyinGame.GamePlay
+namespace WhoGetInBus.GamePlay
 {
     public class BoardingGateDetector : MonoBehaviour
     {
