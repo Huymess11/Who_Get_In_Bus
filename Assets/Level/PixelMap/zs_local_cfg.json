@@ -1,0 +1,30 @@
+﻿{
+    "zsmp":  {
+                 "pay":  {
+                             "open":  true,
+                             "ios":  true,
+                             "debug":  false
+                         },
+                 "ad":  {
+                            "open":  true,
+                            "rewardedVideoIds":  [
+                                                     "adUnitId"
+                                                 ],
+                            "customAdIds":  [
+
+                                            ],
+                            "rewardedVideoAdInfo":  {
+
+                                                    }
+                        },
+                 "share":  {
+                               "open":  true,
+                               "title":  [
+
+                                         ],
+                               "imageUrl":  [
+
+                                            ]
+                           }
+             }
+}

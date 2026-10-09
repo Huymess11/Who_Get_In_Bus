@@ -1,0 +1,92 @@
+﻿{
+    "0":  {
+              "id":  0,
+              "value":  "white",
+              "color":  0
+          },
+    "1":  {
+              "id":  1,
+              "value":  "green",
+              "color":  1
+          },
+    "2":  {
+              "id":  2,
+              "value":  "cyan",
+              "color":  2
+          },
+    "3":  {
+              "id":  3,
+              "value":  "blue",
+              "color":  3
+          },
+    "4":  {
+              "id":  4,
+              "value":  "brown",
+              "color":  4
+          },
+    "5":  {
+              "id":  5,
+              "value":  "purple",
+              "color":  5
+          },
+    "6":  {
+              "id":  6,
+              "value":  "powder",
+              "color":  6
+          },
+    "7":  {
+              "id":  7,
+              "value":  "yellow",
+              "color":  7
+          },
+    "8":  {
+              "id":  8,
+              "value":  "red",
+              "color":  8
+          },
+    "9":  {
+              "id":  9,
+              "value":  "emerald_green",
+              "color":  9
+          },
+    "10":  {
+               "id":  10,
+               "value":  "orange",
+               "color":  10
+           },
+    "11":  {
+               "id":  11,
+               "value":  "black",
+               "color":  11
+           },
+    "12":  {
+               "id":  12,
+               "value":  "dark_green",
+               "color":  12
+           },
+    "13":  {
+               "id":  13,
+               "value":  "burgundy",
+               "color":  13
+           },
+    "14":  {
+               "id":  14,
+               "value":  "grayish_blue",
+               "color":  14
+           },
+    "15":  {
+               "id":  15,
+               "value":  "light_purple",
+               "color":  15
+           },
+    "16":  {
+               "id":  16,
+               "value":  "pink",
+               "color":  16
+           },
+    "17":  {
+               "id":  17,
+               "value":  "teal",
+               "color":  17
+           }
+}
