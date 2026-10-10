@@ -41,26 +41,6 @@ public class BusColorData : SerializedScriptableObject
         Debug.Log($"<color=green>[BusColorData]</color> Đã tự động gắn thành công {data.Count}/18 Material vào BusColorData!");
     }
 
-    [MenuItem("Tools/Tạo & Gắn 18 Material Vào BusColorData", false, 2)]
-    public static void MenuCreateAndAssign()
-    {
-        string assetPath = "Assets/Data/BusColorData.asset";
-        var asset = AssetDatabase.LoadAssetAtPath<BusColorData>(assetPath);
-        if (asset == null)
-        {
-            if (!AssetDatabase.IsValidFolder("Assets/Data"))
-            {
-                AssetDatabase.CreateFolder("Assets", "Data");
-            }
-            asset = CreateInstance<BusColorData>();
-            AssetDatabase.CreateAsset(asset, assetPath);
-            Debug.Log($"<color=green>[BusColorData]</color> Đã tạo mới file asset tại: {assetPath}");
-        }
-
-        asset.AutoAssignMaterials();
-        Selection.activeObject = asset;
-    }
-
     private void Assign(GameColorType colorType, string path)
     {
         Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);

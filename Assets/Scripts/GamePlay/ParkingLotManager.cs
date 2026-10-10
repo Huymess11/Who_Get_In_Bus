@@ -11,9 +11,11 @@ namespace WhoGetInBus.GamePlay
     {
         public static ParkingLotManager Instance { get; private set; }
 
-        [Header("Cấu Hình Bãi Đỗ Xe")]
-        public float slotSpacingX = 2.4f; // Khoảng cách giữa các cột xe
-        public float slotSpacingZ = 3.6f; // Khoảng cách giữa các hàng xe trong cột
+        [Header("Cấu Hình Bãi Đỗ Xe (Chuẩn Cocos Creator 1:1)")]
+        [Tooltip("Khoảng cách giữa các cột xe (tự động tính theo công thức Cocos: min(1.6, 5.6 / (cols - 1)))")]
+        public float slotSpacingX = 1.4f;
+        [Tooltip("Khoảng cách giữa các hàng xe (chuẩn Cocos: 1.8m)")]
+        public float slotSpacingZ = 1.8f;
         public GameObject carPrefab;
         public GameObject extraCarPrefab; // Xe buýt 2 tầng (Extra Car)
         public BusColorData busColors;
@@ -24,6 +26,35 @@ namespace WhoGetInBus.GamePlay
         private void Awake()
         {
             Instance = this;
+        }
+
+        /// <summary>
+        /// Nạp và sinh trực tiếp bãi đỗ xe từ Level ID chuẩn gốc (1001, 1002, ...)
+        /// </summary>
+        public void LoadLevelDirect(int targetLevelId, GamePrefabData prefabData = null)
+        {
+            var levelData = WhoGetInBus.Data.LevelConfigLoader.LoadLevel(targetLevelId);
+            if (levelData != null)
+            {
+                int rows = Mathf.Max(1, levelData.RowCount);
+                int cols = Mathf.Max(1, levelData.ColCount);
+                string[,] grid = new string[rows, cols];
+                for (int r = 0; r < rows; r++)
+                {
+                    for (int c = 0; c < cols; c++)
+                    {
+                        if (r < levelData.bus.Count && c < levelData.bus[r].Count)
+                            grid[r, c] = levelData.bus[r][c];
+                        else
+                            grid[r, c] = "-1_0_0";
+                    }
+                }
+                SpawnParkingLot(grid, rows, cols, prefabData);
+            }
+            else
+            {
+                Debug.LogWarning($"[ParkingLotManager] Không tìm thấy dữ liệu level {targetLevelId} chuẩn gốc!");
+            }
         }
 
         public void SpawnParkingLot(string[,] carGrid, int rows, int cols, GamePrefabData prefabData)
@@ -44,6 +75,10 @@ namespace WhoGetInBus.GamePlay
             ClearParkingLot();
 
             columnsOfCars.Clear();
+
+            // Tính khoảng cách cột chuẩn Cocos Creator 3.x
+            slotSpacingX = Mathf.Min(1.6f, 5.6f / Mathf.Max(1, cols - 1));
+            slotSpacingZ = 1.8f;
             float startX = -((cols - 1) * slotSpacingX) * 0.5f;
 
             for (int c = 0; c < cols; c++)
@@ -53,7 +88,7 @@ namespace WhoGetInBus.GamePlay
                 for (int r = 0; r < rows; r++)
                 {
                     string cellData = carGrid[r, c];
-                    if (string.IsNullOrEmpty(cellData) || cellData.StartsWith("-1")) continue;
+                    if (string.IsNullOrEmpty(cellData) || cellData.StartsWith("-1") || cellData.Equals("None", System.StringComparison.OrdinalIgnoreCase)) continue;
 
                     string[] parts = cellData.Split('_');
                     int colorIdx = 0, cap = 100, mech = 0;
@@ -85,12 +120,12 @@ namespace WhoGetInBus.GamePlay
 #endif
                     carObj.name = $"Car_C{c}_R{r}_{colorIdx}_{cap}c";
 
-                    // Đảm bảo xe có Collider để click được
+                    // Đảm bảo xe có Collider vừa vặn kích thước xe để click chuẩn xác
                     if (carObj.GetComponent<Collider>() == null)
                     {
                         var box = carObj.AddComponent<BoxCollider>();
-                        box.size = new Vector3(1.8f, 1.6f, 3.2f);
-                        box.center = new Vector3(0, 0.8f, 0);
+                        box.size = new Vector3(1.3f, 1.4f, 1.6f);
+                        box.center = new Vector3(0, 0.7f, 0);
                     }
 
                     var follower = carObj.GetComponent<CarLoopFollower>();

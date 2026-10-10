@@ -11,33 +11,35 @@ namespace WhoGetInBus.GamePlay
     {
         public static SandBoardManager Instance { get; private set; }
 
-        [Header("Kích Thước Tranh Cát")]
+        [Header("Kích Thước Tranh Cát (Chuẩn Cocos Creator 1:1)")]
         public int columns = 40;
         public int rows = 40;
-        public float beadSpacing = 0.28f;
-        public float beadRadius = 0.13f;
+        [Tooltip("Khoảng cách giữa các hạt cát (Chuẩn Cocos: 750px / 40 = 18.75px -> 0.2586m ~ 0.26m)")]
+        public float beadSpacing = 0.2586f;
+        [Tooltip("Bán kính hạt cát (Chuẩn: beadSpacing / 2 = 0.1293m)")]
+        public float beadRadius = 0.1293f;
 
-        [Header("Thông Số Scale & Vị Trí (Mới)")]
-        [Tooltip("Scale của các hạt cát lúc tạo ra (mặc định = 1)")]
+        [Header("Thông Số Scale & Vị Trí (Chuẩn Cocos Creator 1:1)")]
+        [Tooltip("Scale của các hạt cát lúc tạo ra (chuẩn 0.55 để vừa khít lưới 0.26m)")]
         [Range(0.1f, 3f)]
-        public float beadScale = 1.0f;
+        public float beadScale = 0.55f;
 
-        [Tooltip("Vị trí Z của bảng cát (mặc định = 6)")]
+        [Tooltip("Vị trí Z của bảng cát (Chuẩn Cocos: 6.0 tương ứng Canvas Y = +371px)")]
         public float boardPosZ = 6.0f;
 
-        [Header("Lệch Zigzag Cát")]
+        [Header("Lệch Zigzag Cát (Chuẩn Cocos Creator 1:1)")]
         [Tooltip("Bật/tắt hiệu ứng xếp hạt so le hình zigzag")]
         public bool enableZigzag = true;
 
-        [Tooltip("Độ lệch trục X giữa các hàng xen kẽ nhau (mặc định 0.14 = một nửa beadSpacing)")]
+        [Tooltip("Độ lệch trục X giữa các hàng xen kẽ nhau (chuẩn Cocos: oddRowOffsetX = 6px -> 0.0828m ~ 0.083m)")]
         [Range(-0.5f, 0.5f)]
-        public float zigzagOffset = 0.14f;
+        public float zigzagOffset = 0.0828f;
 
         [Header("Khoét Rãnh Đường Cong Cho Xe")]
         public bool enableRoadCutout = true;
-        public int cutoutColMin = 14;
-        public int cutoutColMax = 25;
-        public int cutoutRowMax = 18;
+        public int cutoutColMin = 13;
+        public int cutoutColMax = 26;
+        public int cutoutRowMax = 19;
 
         [Header("Prefab & Material")]
         public GameObject beadPrefab;
@@ -45,6 +47,10 @@ namespace WhoGetInBus.GamePlay
         public PassengerColorData passengerColors;
 
         [Header("Dữ Liệu Màn Chơi (Level Data)")]
+        [Tooltip("Level ID chuẩn gốc Cocos (1001, 1002, 1003...)")]
+        public int levelId = 1001;
+        [Tooltip("ID Tuyến đường (road trong levelNCXHCfg.json, mặc định = 5)")]
+        public int currentRoadId = 5;
         public TextAsset levelConfigFile;
         [TextArea(2, 6)]
         public string sandDataString;
@@ -65,6 +71,39 @@ namespace WhoGetInBus.GamePlay
             {
                 InitFromExistingChildren();
             }
+        }
+
+        /// <summary>
+        /// Nạp và sinh trực tiếp tranh cát từ Level ID chuẩn gốc (1001, 1002, ...)
+        /// </summary>
+        public void LoadLevelDirect(int targetLevelId, GamePrefabData prefabData = null)
+        {
+            var levelData = WhoGetInBus.Data.LevelConfigLoader.LoadLevel(targetLevelId);
+            if (levelData != null)
+            {
+                var collectData = WhoGetInBus.Data.LevelConfigLoader.GetCollect(levelData.collect);
+                int picId = collectData != null ? collectData.picture : levelData.collect;
+                var pixelMap = WhoGetInBus.Data.LevelConfigLoader.LoadPixelMap(picId);
+                if (pixelMap != null)
+                {
+                    int[,] pData = new int[40, 40];
+                    for (int r = 0; r < 40; r++)
+                    {
+                        for (int c = 0; c < 40; c++)
+                        {
+                            // In 3D: r = 0 là đáy (gần cổng đường), r = 39 là đỉnh trên cùng.
+                            // Trong file PixelMap: col = 0..39 (trái sang phải), row = 0..39 (đỉnh trên xuống đáy).
+                            // Vì vậy: 3D col c = json col c; 3D row r = json row (39 - r).
+                            pData[r, c] = pixelMap.points[c, 39 - r];
+                        }
+                    }
+                    levelId = targetLevelId;
+                    currentRoadId = levelData.road;
+                    BuildBoard(pData, prefabData);
+                    return;
+                }
+            }
+            Debug.LogWarning($"[SandBoardManager] Không tìm thấy dữ liệu level {targetLevelId} chuẩn gốc!");
         }
 
 
@@ -166,8 +205,21 @@ namespace WhoGetInBus.GamePlay
 
         public bool IsInRoadCutout(int col, int row)
         {
+            // Kiểm tra theo cấu hình RoadConfigData chuẩn gốc từ roadNCXHCfg.json
+            var roadCfg = WhoGetInBus.Data.LevelConfigLoader.GetRoadConfig(currentRoadId);
+            if (roadCfg != null)
+            {
+                // In 3D: row 0 là đáy (gần cổng đường), row 39 là đỉnh trên
+                // Trong roadCfg.points: col là 0..39, row là 0 (đỉnh) .. 39 (đáy)
+                int jsonRow = 39 - row;
+                if (col >= 0 && col < 40 && jsonRow >= 0 && jsonRow < 40)
+                {
+                    return roadCfg.IsCutout(col, jsonRow);
+                }
+            }
+
+            // Fallback nếu không có file cấu hình road
             if (row > cutoutRowMax) return false;
-            // Tạo hình vòm chữ U khoét rãnh
             if (col >= cutoutColMin && col <= cutoutColMax)
             {
                 int centerCol = (cutoutColMin + cutoutColMax) / 2;
@@ -243,6 +295,62 @@ namespace WhoGetInBus.GamePlay
             }
 
             return bead;
+        }
+
+        private void Reset()
+        {
+            ApplyCocosOriginalSettings();
+        }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            if (transform.position.z != boardPosZ)
+            {
+                transform.position = new Vector3(transform.position.x, transform.position.y, boardPosZ);
+            }
+        }
+#endif
+
+        /// <summary>
+        /// Áp dụng 100% đúng vị trí và thông số chuẩn gốc Cocos Creator (1:1).
+        /// </summary>
+        [ContextMenu("⚡ Áp Dụng Thông Số Chuẩn Gốc Cocos (1:1)")]
+        public void ApplyCocosOriginalSettings()
+        {
+            columns = 40;
+            rows = 40;
+            // Cocos: canvas 750px / 40 cols = 18.75px -> chiếu sang Unity 3D (ortho size 9.2): 0.2586m (~0.26m)
+            beadSpacing = 0.2586f;
+            beadRadius = 0.1293f;
+            beadScale = 0.55f;     // Khớp với sprite width 0.48m * 0.55 = 0.264m vừa khít lưới
+            boardPosZ = 6.0f;      // Tọa độ Z chuẩn chiếu lên screen Y = +371px
+            enableZigzag = true;
+            zigzagOffset = 0.0828f;// oddRowOffsetX = 6px -> 0.0828m (~0.083m)
+            enableRoadCutout = true;
+            cutoutColMin = 13;
+            cutoutColMax = 26;
+            cutoutRowMax = 19;
+
+            // Đặt vị trí, góc quay và scale chuẩn của SandBoard_Manager GameObject
+            transform.position = new Vector3(0f, 0f, 6.0f);
+            transform.rotation = Quaternion.identity;
+            transform.localScale = Vector3.one;
+
+            UpdateExistingBeads();
+
+#if UNITY_EDITOR
+            Undo.RecordObject(transform, "Apply Cocos Original Settings");
+            Undo.RecordObject(this, "Apply Cocos Original Settings");
+            EditorUtility.SetDirty(gameObject);
+            EditorUtility.SetDirty(this);
+            SceneView.RepaintAll();
+#endif
+            Debug.Log("<color=green>[SandBoardManager]</color> <b>ĐÃ ÁP DỤNG THÀNH CÔNG THÔNG SỐ CHUẨN GỐC COCOS 1:1!</b>\n" +
+                      $"• Bead Spacing: {beadSpacing} (~0.26m)\n" +
+                      $"• Zigzag Offset: {zigzagOffset} (~0.083m)\n" +
+                      $"• Bead Scale: {beadScale}\n" +
+                      $"• Transform Position: {transform.position}");
         }
 
         [ContextMenu("⚡ Cập Nhật Scale & Lệch Zigzag")]
@@ -335,7 +443,32 @@ namespace WhoGetInBus.GamePlay
         {
             int[,] pixelData = new int[rows, columns];
 
-            // 1. Thử lấy từ sandDataString nếu có
+            // 1. Thử lấy từ LevelConfigLoader chuẩn gốc trước tiên
+            if (levelId > 0)
+            {
+                var levelData = WhoGetInBus.Data.LevelConfigLoader.LoadLevel(levelId);
+                if (levelData != null)
+                {
+                    var collectData = WhoGetInBus.Data.LevelConfigLoader.GetCollect(levelData.collect);
+                    int picId = collectData != null ? collectData.picture : levelData.collect;
+                    var pixelMap = WhoGetInBus.Data.LevelConfigLoader.LoadPixelMap(picId);
+                    if (pixelMap != null)
+                    {
+                        currentRoadId = levelData.road;
+                        for (int r = 0; r < rows; r++)
+                        {
+                            for (int c = 0; c < columns; c++)
+                            {
+                                int jsonRow = (rows - 1) - r;
+                                pixelData[r, c] = pixelMap.points[c, jsonRow];
+                            }
+                        }
+                        return pixelData;
+                    }
+                }
+            }
+
+            // 2. Thử lấy từ sandDataString nếu có
             if (!string.IsNullOrEmpty(sandDataString))
             {
                 string[] tokens = sandDataString.Split(',');

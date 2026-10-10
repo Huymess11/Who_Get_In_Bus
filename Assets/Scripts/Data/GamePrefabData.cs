@@ -57,25 +57,5 @@ public class GamePrefabData : SerializedScriptableObject
         AssetDatabase.SaveAssets();
         Debug.Log("<color=green>[GamePrefabData]</color> Đã tự động gắn đầy đủ Car, Extra Car, Passenger và Color Data!");
     }
-
-    [MenuItem("Tools/Tạo & Gắn GamePrefabData Asset", false, 3)]
-    public static void CreateOrUpdateAsset()
-    {
-        string assetPath = "Assets/Data/GamePrefabData.asset";
-        var asset = AssetDatabase.LoadAssetAtPath<GamePrefabData>(assetPath);
-        if (asset == null)
-        {
-            if (!AssetDatabase.IsValidFolder("Assets/Data"))
-            {
-                AssetDatabase.CreateFolder("Assets", "Data");
-            }
-            asset = CreateInstance<GamePrefabData>();
-            AssetDatabase.CreateAsset(asset, assetPath);
-            Debug.Log($"<color=green>[GamePrefabData]</color> Đã tạo mới file asset tại: {assetPath}");
-        }
-
-        asset.AutoAssignResources();
-        Selection.activeObject = asset;
-    }
 #endif
 }

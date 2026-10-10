@@ -41,16 +41,6 @@ public class PassengerColorData : SerializedScriptableObject
         Debug.Log($"<color=green>[PassengerColorData]</color> Đã tự động gắn thành công {data.Count}/18 màu vào Sprite!");
     }
 
-    [MenuItem("Tools/Gắn 18 Ảnh Passenger Vào Data")]
-    public static void MenuAutoAssign()
-    {
-        var asset = AssetDatabase.LoadAssetAtPath<PassengerColorData>("Assets/Data/PassengerColorData.asset");
-        if (asset != null)
-        {
-            asset.AutoAssignSprites();
-        }
-    }
-
     private void Assign(GameColorType colorType, string path)
     {
         Sprite sp = AssetDatabase.LoadAssetAtPath<Sprite>(path);
