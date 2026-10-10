@@ -591,24 +591,24 @@ namespace WhoGetInBus.GamePlay
         {
             Color[] palette = new Color[]
             {
-                new Color(1f, 1f, 1f),          // White
-                new Color(0.19f, 0.82f, 0.51f), // Green
-                new Color(0.27f, 0.85f, 1f),    // Cyan
-                new Color(0.16f, 0.51f, 0.96f), // Blue
-                new Color(0.4f, 0.22f, 0.18f),  // Brown
-                new Color(0.71f, 0.45f, 0.99f), // Purple
-                new Color(1f, 0.79f, 0.66f),    // Powder
-                new Color(1f, 0.88f, 0.28f),    // Yellow
-                new Color(1f, 0.32f, 0.36f),    // Red
-                new Color(0.6f, 0.9f, 0.2f),    // EmeraldGreen
-                new Color(1f, 0.5f, 0.1f),      // Orange
-                new Color(0.15f, 0.15f, 0.15f), // Black
-                new Color(0.1f, 0.5f, 0.2f),    // DarkGreen
-                new Color(0.6f, 0.1f, 0.1f),    // Burgundy
-                new Color(0.4f, 0.5f, 0.6f),    // GrayishBlue
-                new Color(0.8f, 0.6f, 0.9f),    // LightPurple
-                new Color(0.95f, 0.4f, 0.7f),   // Pink
-                new Color(0.1f, 0.85f, 0.85f)   // Teal
+                new Color(1.000f, 1.000f, 1.000f), // 0: White
+                new Color(0.188f, 0.820f, 0.514f), // 1: Green
+                new Color(0.000f, 0.878f, 1.000f), // 2: Cyan
+                new Color(0.031f, 0.576f, 1.000f), // 3: Blue
+                new Color(0.525f, 0.275f, 0.110f), // 4: Brown
+                new Color(0.749f, 0.306f, 0.933f), // 5: Purple
+                new Color(0.969f, 0.827f, 0.741f), // 6: Powder
+                new Color(0.980f, 0.882f, 0.165f), // 7: Yellow
+                new Color(0.980f, 0.235f, 0.235f), // 8: Red
+                new Color(0.600f, 0.914f, 0.129f), // 9: EmeraldGreen
+                new Color(1.000f, 0.561f, 0.000f), // 10: Orange
+                new Color(0.208f, 0.208f, 0.208f), // 11: Black
+                new Color(0.051f, 0.659f, 0.000f), // 12: DarkGreen
+                new Color(0.725f, 0.016f, 0.369f), // 13: Burgundy
+                new Color(0.525f, 0.537f, 0.820f), // 14: GrayishBlue
+                new Color(0.765f, 0.753f, 0.969f), // 15: LightPurple
+                new Color(0.988f, 0.416f, 0.918f), // 16: Pink
+                new Color(0.729f, 0.961f, 0.851f)  // 17: Teal
             };
 
             if (colorIdx >= 0 && colorIdx < palette.Length) return palette[colorIdx];

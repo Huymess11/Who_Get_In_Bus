@@ -15,26 +15,26 @@ public class PassengerColorData : SerializedScriptableObject
     public void AutoAssignSprites()
     {
         data.Clear();
-        string folder = "Assets/Sprites/3D_Passengers";
+        string folder = "Assets/Sprite/UI/prefabs";
 
-        Assign(GameColorType.White, $"{folder}/3D_Passenger_16_White.png");
-        Assign(GameColorType.Green, $"{folder}/3D_Passenger_08_GreenTeal.png");
-        Assign(GameColorType.Cyan, $"{folder}/3D_Passenger_04_Cyan.png");
-        Assign(GameColorType.Blue, $"{folder}/3D_Passenger_01_Blue.png");
-        Assign(GameColorType.Brown, $"{folder}/3D_Passenger_02_Brown.png");
-        Assign(GameColorType.Purple, $"{folder}/3D_Passenger_13_Purple.png");
-        Assign(GameColorType.Powder, $"{folder}/3D_Passenger_12_Powder.png");
-        Assign(GameColorType.Yellow, $"{folder}/3D_Passenger_17_Yellow.png");
-        Assign(GameColorType.Red, $"{folder}/3D_Passenger_14_Red.png");
-        Assign(GameColorType.EmeraldGreen, $"{folder}/3D_Passenger_06_LimeGreen.png");
-        Assign(GameColorType.Orange, $"{folder}/3D_Passenger_10_Orange.png");
-        Assign(GameColorType.Black, $"{folder}/3D_Passenger_00_Black.png");
-        Assign(GameColorType.DarkGreen, $"{folder}/3D_Passenger_05_DarkGreen.png");
-        Assign(GameColorType.Burgundy, $"{folder}/3D_Passenger_03_Burgundy.png");
-        Assign(GameColorType.GrayishBlue, $"{folder}/3D_Passenger_07_GrayishBlue.png");
-        Assign(GameColorType.LightPurple, $"{folder}/3D_Passenger_09_LightPurple.png");
-        Assign(GameColorType.Pink, $"{folder}/3D_Passenger_11_Pink.png");
-        Assign(GameColorType.Teal, $"{folder}/3D_Passenger_15_Teal.png");
+        Assign(GameColorType.White, $"{folder}/white.png");
+        Assign(GameColorType.Green, $"{folder}/green.png");
+        Assign(GameColorType.Cyan, $"{folder}/cyan.png");
+        Assign(GameColorType.Blue, $"{folder}/blue.png");
+        Assign(GameColorType.Brown, $"{folder}/brown.png");
+        Assign(GameColorType.Purple, $"{folder}/purple.png");
+        Assign(GameColorType.Powder, $"{folder}/powder.png");
+        Assign(GameColorType.Yellow, $"{folder}/yellow.png");
+        Assign(GameColorType.Red, $"{folder}/red.png");
+        Assign(GameColorType.EmeraldGreen, $"{folder}/emerald_green.png");
+        Assign(GameColorType.Orange, $"{folder}/orange.png");
+        Assign(GameColorType.Black, $"{folder}/black.png");
+        Assign(GameColorType.DarkGreen, $"{folder}/dark_green.png");
+        Assign(GameColorType.Burgundy, $"{folder}/burgundy.png");
+        Assign(GameColorType.GrayishBlue, $"{folder}/grayish_blue.png");
+        Assign(GameColorType.LightPurple, $"{folder}/light_purple.png");
+        Assign(GameColorType.Pink, $"{folder}/pink.png");
+        Assign(GameColorType.Teal, $"{folder}/teal.png");
 
         EditorUtility.SetDirty(this);
         AssetDatabase.SaveAssets();
