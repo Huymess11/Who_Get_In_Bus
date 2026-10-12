@@ -142,6 +142,13 @@ namespace WhoGetInBus.EditorTools
             RefreshLevelList();
             RefreshCollectPresets();
             EnsureCanvasTexture();
+            if (carGrid == null)
+            {
+                carGrid = new string[parkingRows, parkingCols];
+                for (int r = 0; r < parkingRows; r++)
+                    for (int c = 0; c < parkingCols; c++)
+                        carGrid[r, c] = "None";
+            }
             LoadLevel(currentLevelId);
         }
 
@@ -715,7 +722,7 @@ namespace WhoGetInBus.EditorTools
             EditorGUILayout.LabelField("Cột:", GUILayout.Width(35));
             int newCols = EditorGUILayout.IntSlider(parkingCols, 1, 7, GUILayout.Width(130));
 
-            if (newRows != parkingRows || newCols != parkingCols)
+            if (newRows != parkingRows || newCols != parkingCols || carGrid == null || carGrid.GetLength(0) != newRows || carGrid.GetLength(1) != newCols)
             {
                 ResizeParkingGrid(newRows, newCols);
             }
@@ -739,17 +746,25 @@ namespace WhoGetInBus.EditorTools
             // Hàng 0 là Hàng Tiền Tuyến (sát vạch xuất phát / đón khách)
             EditorGUILayout.LabelField("⬇ Vạch xuất phát / Đón khách (Hàng 0 đi trước) ⬇", EditorStyles.centeredGreyMiniLabel);
 
-            for (int r = 0; r < parkingRows; r++)
+            int actualRows = carGrid != null ? carGrid.GetLength(0) : 0;
+            int actualCols = carGrid != null ? carGrid.GetLength(1) : 0;
+
+            for (int r = 0; r < actualRows; r++)
             {
                 EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField($"Hàng {r}:", GUILayout.Width(50));
-
-                for (int c = 0; c < parkingCols; c++)
+                try
                 {
-                    DrawCarSlotCell(r, c);
-                }
+                    EditorGUILayout.LabelField($"Hàng {r}:", GUILayout.Width(50));
 
-                EditorGUILayout.EndHorizontal();
+                    for (int c = 0; c < actualCols; c++)
+                    {
+                        DrawCarSlotCell(r, c);
+                    }
+                }
+                finally
+                {
+                    EditorGUILayout.EndHorizontal();
+                }
                 EditorGUILayout.Space(2);
             }
 
@@ -792,6 +807,11 @@ namespace WhoGetInBus.EditorTools
 
         private void DrawCarSlotCell(int r, int c)
         {
+            if (carGrid == null || r < 0 || r >= carGrid.GetLength(0) || c < 0 || c >= carGrid.GetLength(1))
+            {
+                return;
+            }
+
             string cell = carGrid[r, c];
             bool isEmpty = string.IsNullOrEmpty(cell) || cell.Equals("None", StringComparison.OrdinalIgnoreCase) || cell.StartsWith("-1");
 
@@ -836,14 +856,22 @@ namespace WhoGetInBus.EditorTools
             }
         }
 
+        private void SetCarCellSafe(int r, int c, string val)
+        {
+            if (carGrid != null && r >= 0 && r < carGrid.GetLength(0) && c >= 0 && c < carGrid.GetLength(1))
+            {
+                carGrid[r, c] = val;
+                RecalculateDemand();
+            }
+        }
+
         private void ShowCarCellMenu(int r, int c, int curCol, int curCap, int curMech)
         {
             GenericMenu menu = new GenericMenu();
 
             menu.AddItem(new GUIContent("Trống (None)"), curCol < 0, () =>
             {
-                carGrid[r, c] = "None";
-                RecalculateDemand();
+                SetCarCellSafe(r, c, "None");
             });
 
             menu.AddSeparator("");
@@ -856,8 +884,7 @@ namespace WhoGetInBus.EditorTools
                 menu.AddItem(new GUIContent($"Sức chứa/{capVal} chỗ"), curCap == capVal, () =>
                 {
                     int col = curCol >= 0 ? curCol : selectedBrushColor;
-                    carGrid[r, c] = $"{col}_{capVal}_{curMech}";
-                    RecalculateDemand();
+                    SetCarCellSafe(r, c, $"{col}_{capVal}_{curMech}");
                 });
             }
 
@@ -871,8 +898,7 @@ namespace WhoGetInBus.EditorTools
                 menu.AddItem(new GUIContent($"Màu/#{colIdx} - {cName}"), curCol == colIdx, () =>
                 {
                     int capV = curCap > 0 ? curCap : 100;
-                    carGrid[r, c] = $"{colIdx}_{capV}_{curMech}";
-                    RecalculateDemand();
+                    SetCarCellSafe(r, c, $"{colIdx}_{capV}_{curMech}");
                 });
             }
 
@@ -882,26 +908,22 @@ namespace WhoGetInBus.EditorTools
             menu.AddItem(new GUIContent("Cơ chế/Thường (None)"), curMech == 0, () =>
             {
                 int col = curCol >= 0 ? curCol : selectedBrushColor;
-                carGrid[r, c] = $"{col}_{curCap}_0";
-                RecalculateDemand();
+                SetCarCellSafe(r, c, $"{col}_{curCap}_0");
             });
             menu.AddItem(new GUIContent("Cơ chế/3-in-One Gộp 3"), curMech == 1, () =>
             {
                 int col = curCol >= 0 ? curCol : selectedBrushColor;
-                carGrid[r, c] = $"{col}_{curCap}_1";
-                RecalculateDemand();
+                SetCarCellSafe(r, c, $"{col}_{curCap}_1");
             });
             menu.AddItem(new GUIContent("Cơ chế/Khóa & Chìa khóa"), curMech == 2, () =>
             {
                 int col = curCol >= 0 ? curCol : selectedBrushColor;
-                carGrid[r, c] = $"{col}_{curCap}_2";
-                RecalculateDemand();
+                SetCarCellSafe(r, c, $"{col}_{curCap}_2");
             });
             menu.AddItem(new GUIContent("Cơ chế/Đóng băng (Ice)"), curMech == 3, () =>
             {
                 int col = curCol >= 0 ? curCol : selectedBrushColor;
-                carGrid[r, c] = $"{col}_{curCap}_3";
-                RecalculateDemand();
+                SetCarCellSafe(r, c, $"{col}_{curCap}_3");
             });
 
             menu.ShowAsContext();
@@ -909,18 +931,29 @@ namespace WhoGetInBus.EditorTools
 
         private void ResizeParkingGrid(int newRows, int newCols)
         {
+            newRows = Mathf.Clamp(newRows, 1, 20);
+            newCols = Mathf.Clamp(newCols, 1, 20);
             string[,] next = new string[newRows, newCols];
+            int oldRows = carGrid != null ? carGrid.GetLength(0) : 0;
+            int oldCols = carGrid != null ? carGrid.GetLength(1) : 0;
+
             for (int r = 0; r < newRows; r++)
             {
                 for (int c = 0; c < newCols; c++)
                 {
-                    if (r < parkingRows && c < parkingCols) next[r, c] = carGrid[r, c];
-                    else next[r, c] = "None";
+                    if (carGrid != null && r < oldRows && c < oldCols && !string.IsNullOrEmpty(carGrid[r, c]))
+                    {
+                        next[r, c] = carGrid[r, c];
+                    }
+                    else
+                    {
+                        next[r, c] = "None";
+                    }
                 }
             }
+            carGrid = next;
             parkingRows = newRows;
             parkingCols = newCols;
-            carGrid = next;
             RecalculateDemand();
         }
         #endregion
@@ -994,14 +1027,16 @@ namespace WhoGetInBus.EditorTools
             });
 
             // 4. Xếp xe vào lưới: Hàng 0 bắt buộc phải có đủ các màu lộ diện ở đáy bàn cát
-            for (int r = 0; r < parkingRows; r++)
-                for (int c = 0; c < parkingCols; c++)
+            int fRows = carGrid != null ? carGrid.GetLength(0) : 0;
+            int fCols = carGrid != null ? carGrid.GetLength(1) : 0;
+            for (int r = 0; r < fRows; r++)
+                for (int c = 0; c < fCols; c++)
                     carGrid[r, c] = "None";
 
             // Xếp hàng 0 trước
             HashSet<int> row0Colors = new HashSet<int>();
             int fleetIdx = 0;
-            for (int c = 0; c < parkingCols; c++)
+            for (int c = 0; c < fCols; c++)
             {
                 if (fleetIdx >= fleetList.Count) break;
 
@@ -1020,14 +1055,17 @@ namespace WhoGetInBus.EditorTools
                 var chosenCar = fleetList[pick];
                 fleetList.RemoveAt(pick);
 
-                carGrid[0, c] = $"{chosenCar.Key}_{chosenCar.Value}_0";
+                if (fRows > 0)
+                {
+                    carGrid[0, c] = $"{chosenCar.Key}_{chosenCar.Value}_0";
+                }
                 row0Colors.Add(chosenCar.Key);
             }
 
             // Xếp các hàng tiếp theo (Hàng 1 đến N)
-            for (int r = 1; r < parkingRows; r++)
+            for (int r = 1; r < fRows; r++)
             {
-                for (int c = 0; c < parkingCols; c++)
+                for (int c = 0; c < fCols; c++)
                 {
                     if (fleetList.Count == 0) break;
                     var car = fleetList[0];
@@ -1081,10 +1119,11 @@ namespace WhoGetInBus.EditorTools
                 }
 
                 // Nếu kẹt, thực hiện hoán đổi hàng 1 hoặc hàng 0
-                if (parkingRows > 1)
+                if (carGrid != null && carGrid.GetLength(0) > 1 && carGrid.GetLength(1) > 0)
                 {
-                    int swapC1 = UnityEngine.Random.Range(0, parkingCols);
-                    int swapC2 = UnityEngine.Random.Range(0, parkingCols);
+                    int maxC = carGrid.GetLength(1);
+                    int swapC1 = UnityEngine.Random.Range(0, maxC);
+                    int swapC2 = UnityEngine.Random.Range(0, maxC);
                     string tmp = carGrid[0, swapC1];
                     carGrid[0, swapC1] = carGrid[1, swapC2];
                     carGrid[1, swapC2] = tmp;
@@ -1107,10 +1146,13 @@ namespace WhoGetInBus.EditorTools
 
             // Tạo cột xe ảo
             List<List<KeyValuePair<int, int>>> simColumns = new List<List<KeyValuePair<int, int>>>();
-            for (int c = 0; c < parkingCols; c++)
+            int simCols = carGrid != null ? carGrid.GetLength(1) : 0;
+            int simRows = carGrid != null ? carGrid.GetLength(0) : 0;
+
+            for (int c = 0; c < simCols; c++)
             {
                 var col = new List<KeyValuePair<int, int>>();
-                for (int r = 0; r < parkingRows; r++)
+                for (int r = 0; r < simRows; r++)
                 {
                     string cell = carGrid[r, c];
                     if (string.IsNullOrEmpty(cell) || cell.Equals("None", StringComparison.OrdinalIgnoreCase)) continue;
@@ -1269,21 +1311,55 @@ namespace WhoGetInBus.EditorTools
         /// </summary>
         public void SpawnSandBoardOnly(bool showDialog = true)
         {
-            // 1. Tìm hoặc tạo SandBoard_Manager
-            SandBoardManager boardMgr = FindFirstObjectByType<SandBoardManager>();
+            // 1. Tìm hoặc tạo SandBoard_Manager trên Map Canvass (2D UI)
+            Canvas mapCanvas = null;
+            var allCanvases = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+            foreach (var c in allCanvases)
+            {
+                if (c.gameObject.name.Contains("Map")) { mapCanvas = c; break; }
+            }
+            if (mapCanvas == null && allCanvases.Length > 0) mapCanvas = allCanvases[0];
+
+            SandBoardManager boardMgr = UnityEngine.Object.FindFirstObjectByType<SandBoardManager>();
             if (boardMgr == null)
             {
                 GameObject bObj = new GameObject("SandBoard_Manager");
+                if (mapCanvas != null) bObj.transform.SetParent(mapCanvas.transform, false);
                 boardMgr = bObj.AddComponent<SandBoardManager>();
             }
+            else if (mapCanvas != null && boardMgr.transform.parent != mapCanvas.transform)
+            {
+                boardMgr.transform.SetParent(mapCanvas.transform, false);
+            }
 
-            // Gán dữ liệu chuẩn gốc Cocos 1:1
-            boardMgr.boardPosZ = 6.0f;
-            boardMgr.beadSpacing = 0.2586f;
-            boardMgr.beadRadius = 0.1293f;
-            boardMgr.beadScale = 0.55f; // Scale chuẩn để hạt cát nằm khít không đè lên nhau
+            // Đảm bảo RectTransform và SandBoardGraphic trên UI
+            RectTransform rt = boardMgr.GetComponent<RectTransform>();
+            if (rt == null) rt = boardMgr.gameObject.AddComponent<RectTransform>();
+            Transform topTransform = mapCanvas != null ? mapCanvas.transform.Find("Top") : null;
+            Vector2 targetPos = new Vector2(0f, -180f);
+            if (topTransform != null && topTransform is RectTransform topRt) targetPos = topRt.anchoredPosition;
+
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = targetPos;
+            rt.sizeDelta = new Vector2(973f, 973f);
+            rt.localScale = Vector3.one;
+            rt.localRotation = Quaternion.identity;
+            boardMgr.transform.SetSiblingIndex(1);
+
+            SandBoardGraphic graphic = boardMgr.GetComponent<SandBoardGraphic>();
+            if (graphic == null) graphic = boardMgr.gameObject.AddComponent<SandBoardGraphic>();
+            graphic.boardManager = boardMgr;
+
+            // Gán dữ liệu chuẩn gốc Cocos 1:1 trên UI
+            boardMgr.beadSpacingX = 24.32f;
+            boardMgr.beadSpacingY = 24.32f;
+            boardMgr.beadSpacing = 24.32f;
+            boardMgr.beadSize = new Vector2(34f, 44f);
+            boardMgr.beadScale = 1.0f;
             boardMgr.enableZigzag = true;
-            boardMgr.zigzagOffset = 0.0828f;
+            boardMgr.zigzagOffset = 12.16f;
             boardMgr.columns = 40;
             boardMgr.rows = 40;
             boardMgr.currentRoadId = currentRoadId;
@@ -1291,14 +1367,15 @@ namespace WhoGetInBus.EditorTools
 
             // Nạp Prefab & Asset
             AssignPrefabsToManagers(boardMgr, null);
+            boardMgr.EnsureAtlasLoaded();
 
-            // Sinh bảng cát vào Scene
+            // Sinh bảng cát vào Scene trên UI (1 Draw Call, 0 GameObject con)
             boardMgr.BuildBoard(sandboardGrid, boardMgr.passengerColors, boardMgr.beadMaterial);
 
             // Mark Scene Dirty
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
 
-            Debug.Log($"<color=green>[Level Designer Pro]</color> Đã sinh riêng {boardMgr.TotalRemainingBeads} Passenger vào Scene chuẩn Cocos 1:1!");
+            Debug.Log($"<color=green>[Level Designer Pro]</color> Đã nạp riêng {boardMgr.TotalRemainingBeads} Passenger lên UI Canvas chuẩn Cocos 1:1!");
             if (showDialog)
             {
                 EditorUtility.DisplayDialog("Thành Công", $"Đã sinh riêng toàn bộ {boardMgr.TotalRemainingBeads} hạt cát Passenger vào Scene (Chuẩn Cocos 1:1)!", "OK");
@@ -1374,6 +1451,10 @@ namespace WhoGetInBus.EditorTools
 
             if (boardMgr != null)
             {
+                if (boardMgr.config == null)
+                {
+                    boardMgr.config = AssetDatabase.LoadAssetAtPath<WhoGetInBus.Data.SandBoardConfigData>("Assets/Data/SandBoardConfigData.asset");
+                }
                 boardMgr.beadPrefab = passPrefab;
                 boardMgr.beadMaterial = beadMat;
                 boardMgr.passengerColors = pColors;
@@ -1518,9 +1599,11 @@ namespace WhoGetInBus.EditorTools
             }
 
             // 4. Tổng ghế xe trong bãi
-            for (int r = 0; r < parkingRows; r++)
+            int seatRows = carGrid != null ? carGrid.GetLength(0) : 0;
+            int seatCols = carGrid != null ? carGrid.GetLength(1) : 0;
+            for (int r = 0; r < seatRows; r++)
             {
-                for (int c = 0; c < parkingCols; c++)
+                for (int c = 0; c < seatCols; c++)
                 {
                     string cell = carGrid[r, c];
                     if (string.IsNullOrEmpty(cell) || cell.Equals("None", StringComparison.OrdinalIgnoreCase)) continue;
@@ -1601,11 +1684,13 @@ namespace WhoGetInBus.EditorTools
             int cCount = Mathf.Max(1, lvl.ColCount);
             ResizeParkingGrid(rCount, cCount);
 
-            for (int r = 0; r < parkingRows; r++)
+            int loadRows = carGrid != null ? carGrid.GetLength(0) : 0;
+            int loadCols = carGrid != null ? carGrid.GetLength(1) : 0;
+            for (int r = 0; r < loadRows; r++)
             {
-                for (int c = 0; c < parkingCols; c++)
+                for (int c = 0; c < loadCols; c++)
                 {
-                    if (r < lvl.bus.Count && c < lvl.bus[r].Count) carGrid[r, c] = lvl.bus[r][c];
+                    if (lvl.bus != null && r < lvl.bus.Count && lvl.bus[r] != null && c < lvl.bus[r].Count) carGrid[r, c] = lvl.bus[r][c];
                     else carGrid[r, c] = "None";
                 }
             }
@@ -1665,10 +1750,12 @@ namespace WhoGetInBus.EditorTools
 
             // Ghi ma trận xe
             lvl.bus = new List<List<string>>();
-            for (int r = 0; r < parkingRows; r++)
+            int saveRows = carGrid != null ? carGrid.GetLength(0) : 0;
+            int saveCols = carGrid != null ? carGrid.GetLength(1) : 0;
+            for (int r = 0; r < saveRows; r++)
             {
                 var rowList = new List<string>();
-                for (int c = 0; c < parkingCols; c++)
+                for (int c = 0; c < saveCols; c++)
                 {
                     rowList.Add(string.IsNullOrEmpty(carGrid[r, c]) ? "None" : carGrid[r, c]);
                 }

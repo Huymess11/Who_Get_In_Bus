@@ -1,168 +1,365 @@
 using UnityEngine;
 using UnityEditor;
 using WhoGetInBus.GamePlay;
+using WhoGetInBus.Data;
 
 namespace WhoGetInBus.Editor
 {
     [CustomEditor(typeof(SandBoardManager))]
     public class SandBoardManagerEditor : UnityEditor.Editor
     {
-        [MenuItem("Tools/Who Get In Bus/⚡ Đặt SandBoard Chuẩn Gốc Cocos (1:1)")]
-        public static void ApplyCocosOriginalSettingsFromMenu()
-        {
-            var mgr = Object.FindFirstObjectByType<SandBoardManager>();
-            if (mgr != null)
-            {
-                mgr.ApplyCocosOriginalSettings();
-                EditorUtility.DisplayDialog("Thành công", 
-                    "Đã đặt SandBoard_Manager đúng vị trí và thông số chuẩn gốc Cocos 1:1!\n\n" +
-                    "• Position: (0, 0, 6.0)\n" +
-                    "• Bead Spacing: 0.2586m (~0.26m)\n" +
-                    "• Zigzag Offset: 0.0828m (~0.083m)\n" +
-                    "• Bead Scale: 0.55\n" +
-                    "• Grid: 40 x 40", "OK");
-            }
-            else
-            {
-                EditorUtility.DisplayDialog("Thông báo", "Không tìm thấy GameObject chứa component SandBoardManager trong Scene hiện tại!", "OK");
-            }
-        }
-
         public override void OnInspectorGUI()
         {
             SandBoardManager mgr = (SandBoardManager)target;
 
-            // Header Style
-            GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel)
-            {
-                fontSize = 14,
-                alignment = TextAnchor.MiddleCenter
-            };
+            serializedObject.Update();
 
-            EditorGUILayout.Space(6);
-            EditorGUILayout.LabelField("🏖️ SAND BOARD MANAGER (CHUẨN GỐC COCOS) 🏖️", titleStyle);
-            EditorGUILayout.Space(6);
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("🏖️ SAND BOARD MANAGER (UGUI 1-DRAW CALL)", EditorStyles.boldLabel);
+            EditorGUILayout.Space(2);
 
-            // BẢNG NÚT BẤM THAO TÁC NHANH
+            // 0. SCRIPTABLEOBJECT CONFIG DATA (LƯU VĨNH VIỄN)
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            EditorGUILayout.LabelField("🎮 THAO TÁC 1-CLICK (CHUẨN GỐC 1:1):", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("📁 File Cấu Hình Dữ Liệu (ScriptableObject Config)", EditorStyles.boldLabel);
+
+            EditorGUI.BeginChangeCheck();
+            SandBoardConfigData newConfig = (SandBoardConfigData)EditorGUILayout.ObjectField("Config Asset", mgr.config, typeof(SandBoardConfigData), false);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(mgr, "Change SandBoard Config");
+                mgr.config = newConfig;
+                if (mgr.config != null)
+                {
+                    mgr.SyncFromConfig();
+                    mgr.RefreshGraphic();
+                }
+                EditorUtility.SetDirty(mgr);
+            }
+
+            if (mgr.config == null)
+            {
+                EditorGUILayout.HelpBox("⚠️ Chưa liên kết file SandBoardConfigData.asset! Nhấn nút dưới để tự động kết nối.", MessageType.Warning);
+                if (GUILayout.Button("⚡ Tự Động Kết Nối / Nạp SandBoardConfigData.asset", GUILayout.Height(26)))
+                {
+                    mgr.EnsureConfigLoaded();
+                    EditorUtility.SetDirty(mgr);
+                    SceneView.RepaintAll();
+                }
+            }
+            else
+            {
+                EditorGUILayout.HelpBox("✅ Đang liên kết SandBoardConfigData.asset. Mọi thông số dưới đây được lưu vĩnh viễn vào file data, KHÔNG bao giờ bị mất hoặc reset khi sửa code C#!", MessageType.Info);
+            }
+            EditorGUILayout.EndVertical();
+
             EditorGUILayout.Space(4);
 
-            // NÚT CHÍNH: ĐẶT THÔNG SỐ & VỊ TRÍ CHUẨN GỐC COCOS 1:1
-            GUI.backgroundColor = new Color(1.0f, 0.85f, 0.2f);
-            if (GUILayout.Button("⚡ ĐẶT THÔNG SỐ & VỊ TRÍ CHUẨN GỐC COCOS (1:1)", GUILayout.Height(42)))
+            // 1. THANH CHUYỂN LEVEL NHANH (VỚI MŨI TÊN ◀ VÀ ▶)
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField("🎮 Chọn Màn Chơi (Level Data)", EditorStyles.boldLabel);
+            EditorGUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("◀", GUILayout.Width(30), GUILayout.Height(22)))
+            {
+                mgr.levelId = Mathf.Max(1001, mgr.levelId - 1);
+                mgr.RebuildBoardInEditor();
+                EditorUtility.SetDirty(mgr);
+                SceneView.RepaintAll();
+            }
+
+            int newLevel = EditorGUILayout.IntField("Level ID", mgr.levelId);
+            if (newLevel != mgr.levelId)
+            {
+                mgr.levelId = newLevel;
+                mgr.RebuildBoardInEditor();
+                EditorUtility.SetDirty(mgr);
+                SceneView.RepaintAll();
+            }
+
+            if (GUILayout.Button("▶", GUILayout.Width(30), GUILayout.Height(22)))
+            {
+                mgr.levelId = Mathf.Min(1060, mgr.levelId + 1);
+                mgr.RebuildBoardInEditor();
+                EditorUtility.SetDirty(mgr);
+                SceneView.RepaintAll();
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.LabelField($"Tuyến đường (Road ID): {mgr.currentRoadId}", EditorStyles.miniLabel);
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space(4);
+
+            // 2. THÔNG SỐ HẠT CÁT & VỊ TRÍ UI
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField("⚙️ Thông Số Vị Trí Bảng & Kích Thước Hạt Cát", EditorStyles.boldLabel);
+
+            // Vị Trí Bảng Cát Trên Canvas (RectTransform Anchored Position)
+            RectTransform rt = mgr.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                EditorGUI.BeginChangeCheck();
+                Vector2 newBoardPos = EditorGUILayout.Vector2Field(new GUIContent("Board Position UI (X, Y)", "Vị trí toạ độ AnchoredPosition của bảng cát trên màn hình Canvas"), rt.anchoredPosition);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(rt, "Change Board Position");
+                    rt.anchoredPosition = newBoardPos;
+                    if (mgr.config != null)
+                    {
+                        Undo.RecordObject(mgr.config, "Change Config Board Position");
+                        mgr.config.boardPosition = newBoardPos;
+                        EditorUtility.SetDirty(mgr.config);
+                        AssetDatabase.SaveAssets();
+                    }
+                    EditorUtility.SetDirty(rt);
+                    SceneView.RepaintAll();
+                }
+            }
+
+            EditorGUILayout.Space(2);
+
+            // Bead Size & Scale
+            EditorGUI.BeginChangeCheck();
+            Vector2 newSize = EditorGUILayout.Vector2Field(new GUIContent("Bead Size px (Rộng x Cao)", "Kích thước quad hạt cát (chuẩn Cocos: 34 x 44 px để tạo độ lấp lên 20px)"), mgr.beadSize);
+            float newScale = EditorGUILayout.Slider(new GUIContent("Bead Scale (Tỉ Lệ)", "Tỉ lệ scale bổ sung của hạt cát (chuẩn 1.0)"), mgr.beadScale, 0.5f, 1.6f);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(mgr, "Change Bead Size / Scale");
+                mgr.beadSize = newSize;
+                mgr.beadScale = newScale;
+                mgr.SyncToConfig();
+                mgr.UpdateBeadScalesOnly();
+                EditorUtility.SetDirty(mgr);
+                if (mgr.config != null)
+                {
+                    EditorUtility.SetDirty(mgr.config);
+                    AssetDatabase.SaveAssets();
+                }
+                SceneView.RepaintAll();
+            }
+
+            // Offset X (Trái / Phải) với cập nhật tức thì
+            EditorGUILayout.BeginHorizontal();
+            EditorGUI.BeginChangeCheck();
+            float newOffsetX = EditorGUILayout.Slider(new GUIContent("Offset X (Trái / Phải)", "Độ lệch pixel ngang sang trái (-) hoặc sang phải (+)"), mgr.boardOffsetX, -300f, 300f);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(mgr, "Change Board Offset X");
+                mgr.boardOffsetX = newOffsetX;
+                mgr.SyncToConfig();
+                mgr.UpdateExistingBeads();
+                EditorUtility.SetDirty(mgr);
+                if (mgr.config != null)
+                {
+                    EditorUtility.SetDirty(mgr.config);
+                    AssetDatabase.SaveAssets();
+                }
+                SceneView.RepaintAll();
+            }
+            if (GUILayout.Button("0", GUILayout.Width(25), GUILayout.Height(18)))
+            {
+                Undo.RecordObject(mgr, "Reset Board Offset X");
+                mgr.boardOffsetX = 0f;
+                mgr.SyncToConfig();
+                mgr.UpdateExistingBeads();
+                EditorUtility.SetDirty(mgr);
+                if (mgr.config != null)
+                {
+                    EditorUtility.SetDirty(mgr.config);
+                    AssetDatabase.SaveAssets();
+                }
+                SceneView.RepaintAll();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            // Offset Y (Lên / Xuống) với cập nhật tức thì
+            EditorGUILayout.BeginHorizontal();
+            EditorGUI.BeginChangeCheck();
+            float newOffsetY = EditorGUILayout.Slider(new GUIContent("Offset Y (Lên / Xuống)", "Độ lệch pixel dọc lên (+) hoặc xuống (-)"), mgr.boardOffsetY, -300f, 300f);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(mgr, "Change Board Offset Y");
+                mgr.boardOffsetY = newOffsetY;
+                mgr.SyncToConfig();
+                mgr.UpdateExistingBeads();
+                EditorUtility.SetDirty(mgr);
+                if (mgr.config != null)
+                {
+                    EditorUtility.SetDirty(mgr.config);
+                    AssetDatabase.SaveAssets();
+                }
+                SceneView.RepaintAll();
+            }
+            if (GUILayout.Button("0", GUILayout.Width(25), GUILayout.Height(18)))
+            {
+                Undo.RecordObject(mgr, "Reset Board Offset Y");
+                mgr.boardOffsetY = 0f;
+                mgr.SyncToConfig();
+                mgr.UpdateExistingBeads();
+                EditorUtility.SetDirty(mgr);
+                if (mgr.config != null)
+                {
+                    EditorUtility.SetDirty(mgr.config);
+                    AssetDatabase.SaveAssets();
+                }
+                SceneView.RepaintAll();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            // Spacing X (Khoảng cách ngang px)
+            EditorGUI.BeginChangeCheck();
+            float newSpacingX = EditorGUILayout.Slider(new GUIContent("Spacing X (Khoảng Cách Ngang px)", "Khoảng cách giữa các cột hạt trên UI (chuẩn 24.32 px)"), mgr.beadSpacingX, 12f, 40f);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(mgr, "Change Bead Spacing X");
+                mgr.beadSpacingX = newSpacingX;
+                mgr.beadSpacing = newSpacingX;
+                mgr.SyncToConfig();
+                mgr.UpdateExistingBeads();
+                EditorUtility.SetDirty(mgr);
+                if (mgr.config != null)
+                {
+                    EditorUtility.SetDirty(mgr.config);
+                    AssetDatabase.SaveAssets();
+                }
+                SceneView.RepaintAll();
+            }
+
+            // Spacing Y (Khoảng cách dọc px)
+            EditorGUI.BeginChangeCheck();
+            float newSpacingY = EditorGUILayout.Slider(new GUIContent("Spacing Y (Khoảng Cách Dọc px)", "Khoảng cách giữa các hàng hạt trên UI (chuẩn 24.32 px)"), mgr.beadSpacingY, 12f, 40f);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(mgr, "Change Bead Spacing Y");
+                mgr.beadSpacingY = newSpacingY;
+                mgr.SyncToConfig();
+                mgr.UpdateExistingBeads();
+                EditorUtility.SetDirty(mgr);
+                if (mgr.config != null)
+                {
+                    EditorUtility.SetDirty(mgr.config);
+                    AssetDatabase.SaveAssets();
+                }
+                SceneView.RepaintAll();
+            }
+
+            // Zigzag
+            EditorGUI.BeginChangeCheck();
+            bool newZigzag = EditorGUILayout.Toggle(new GUIContent("Enable Zigzag (Xếp So Le)", "Xếp so le các hạt giữa các hàng"), mgr.enableZigzag);
+            float newZigzagOffset = mgr.zigzagOffset;
+            if (newZigzag)
+            {
+                newZigzagOffset = EditorGUILayout.Slider(new GUIContent("Zigzag Offset px", "Chuẩn Cocos: 12.16 pixel"), mgr.zigzagOffset, -25f, 25f);
+            }
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(mgr, "Change Zigzag Settings");
+                mgr.enableZigzag = newZigzag;
+                mgr.zigzagOffset = newZigzagOffset;
+                mgr.SyncToConfig();
+                mgr.UpdateExistingBeads();
+                EditorUtility.SetDirty(mgr);
+                if (mgr.config != null)
+                {
+                    EditorUtility.SetDirty(mgr.config);
+                    AssetDatabase.SaveAssets();
+                }
+                SceneView.RepaintAll();
+            }
+
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space(4);
+
+            // 3. PREFABS & ATLAS
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField("📦 Asset & Texture Atlas", EditorStyles.boldLabel);
+            EditorGUI.BeginChangeCheck();
+            Texture2D newAtlas = (Texture2D)EditorGUILayout.ObjectField("Passenger Atlas (18 Màu)", mgr.passengerAtlas, typeof(Texture2D), false);
+            PassengerColorData newColors = (PassengerColorData)EditorGUILayout.ObjectField("Passenger Colors", mgr.passengerColors, typeof(PassengerColorData), false);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(mgr, "Change Atlas / Colors");
+                mgr.passengerAtlas = newAtlas;
+                mgr.passengerColors = newColors;
+                mgr.SyncToConfig();
+                mgr.RefreshGraphic();
+                EditorUtility.SetDirty(mgr);
+                if (mgr.config != null)
+                {
+                    EditorUtility.SetDirty(mgr.config);
+                    AssetDatabase.SaveAssets();
+                }
+                SceneView.RepaintAll();
+            }
+
+            if (mgr.passengerAtlas == null)
+            {
+                if (GUILayout.Button("⚡ Tự Động Nạp PassengerAtlas_18.png"))
+                {
+                    mgr.passengerAtlas = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Sprite/PassengerAtlas_18.png");
+                    mgr.EnsureAtlasLoaded();
+                    mgr.SyncToConfig();
+                    mgr.RefreshGraphic();
+                    EditorUtility.SetDirty(mgr);
+                    if (mgr.config != null)
+                    {
+                        EditorUtility.SetDirty(mgr.config);
+                        AssetDatabase.SaveAssets();
+                    }
+                }
+            }
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space(6);
+
+            // 4. THAO TÁC CHÍNH (GỌN GÀNG, ĐƠN GIẢN)
+            GUI.backgroundColor = new Color(0.2f, 0.75f, 1.0f);
+            if (GUILayout.Button("⚡ Áp Dụng Chuẩn Gốc Cocos (34x44, Lớp Đè & So Le 1:1)", GUILayout.Height(30)))
             {
                 mgr.ApplyCocosOriginalSettings();
+                mgr.RebuildBoardInEditor();
                 SceneView.RepaintAll();
             }
+            GUI.backgroundColor = Color.white;
 
-            EditorGUILayout.Space(4);
+            EditorGUILayout.Space(2);
+            EditorGUILayout.BeginHorizontal();
 
-            // Nút 1: Cập nhật nhanh các hạt hiện có (Scale, Zigzag, Z=6)
-            GUI.backgroundColor = new Color(0.2f, 0.85f, 1.0f);
-            if (GUILayout.Button("🔄 CẬP NHẬT LẠI VỊ TRÍ & SCALE TẤT CẢ HẠT HIỆN TẠI", GUILayout.Height(32)))
-            {
-                mgr.UpdateExistingBeads();
-                SceneView.RepaintAll();
-            }
-
-            // Nút 2: Tái tạo mới toàn bộ tranh cát từ dữ liệu level
-            GUI.backgroundColor = new Color(0.35f, 0.95f, 0.45f);
-            if (GUILayout.Button("🎨 TÁI TẠO TOÀN BỘ TRANH CÁT (REBUILD LEVEL DATA)", GUILayout.Height(36)))
+            GUI.backgroundColor = new Color(0.25f, 0.85f, 0.45f);
+            if (GUILayout.Button("🎨 Sinh Tranh Cát (Rebuild UI)", GUILayout.Height(36)))
             {
                 mgr.RebuildBoardInEditor();
                 SceneView.RepaintAll();
             }
 
-            // Nút 3 & Nút 4
-            EditorGUILayout.Space(2);
-            EditorGUILayout.BeginHorizontal();
-
-            // Nút 3: Đặt nhanh vị trí Z = 6
-            GUI.backgroundColor = new Color(1.0f, 0.95f, 0.5f);
-            if (GUILayout.Button("📍 ĐẶT VỊ TRÍ Z = 6.0", GUILayout.Height(28)))
+            GUI.backgroundColor = new Color(1.0f, 0.4f, 0.4f);
+            if (GUILayout.Button("🗑️ Xóa Bảng Cát", GUILayout.Height(36)))
             {
-                mgr.boardPosZ = 6f;
-                mgr.transform.position = new Vector3(0f, 0f, 6f);
-                EditorUtility.SetDirty(mgr.gameObject);
-                SceneView.RepaintAll();
-                Debug.Log("<color=yellow>[SandBoardManager]</color> Đã đặt vị trí SandBoard_Manager tại Z = 6.0!");
-            }
-
-            // Nút 4: Xóa tranh cát
-            GUI.backgroundColor = new Color(1.0f, 0.45f, 0.45f);
-            if (GUILayout.Button("🗑️ XÓA BẢNG CÁT", GUILayout.Height(28)))
-            {
-                if (EditorUtility.DisplayDialog("Xác nhận xóa", "Bạn có chắc chắn muốn xóa toàn bộ hạt cát trên bảng không?", "Xóa", "Hủy"))
+                if (EditorUtility.DisplayDialog("Xóa bảng cát", "Bạn có chắc chắn muốn xóa tất cả hạt cát trên bảng không?", "Xóa", "Hủy"))
                 {
                     mgr.ClearBoard();
-                    EditorUtility.SetDirty(mgr.gameObject);
+                    EditorUtility.SetDirty(mgr);
                     SceneView.RepaintAll();
                 }
             }
 
+            GUI.backgroundColor = Color.white;
             EditorGUILayout.EndHorizontal();
 
-            // Nút 5: Mở Level Designer Pro
-            EditorGUILayout.Space(4);
-            GUI.backgroundColor = new Color(0.2f, 0.75f, 1.0f);
-            if (GUILayout.Button("🛠️ MỞ LEVEL DESIGNER PRO", GUILayout.Height(32)))
+            EditorGUILayout.Space(2);
+            if (GUILayout.Button("🛠️ Mở Level Designer Pro", GUILayout.Height(24)))
             {
                 WhoGetInBus.EditorTools.GameLevelDesignerWindow.OpenWindow();
             }
 
-            GUI.backgroundColor = Color.white;
-            EditorGUILayout.EndVertical();
+            EditorGUILayout.Space(4);
 
-            EditorGUILayout.Space(8);
+            // 5. THỐNG KÊ GỌN
+            EditorGUILayout.HelpBox($"Số hạt hiện có: {mgr.TotalRemainingBeads}  |  Draw Call: 1  |  Scale: {mgr.beadScale:F2}", MessageType.Info);
 
-            // BẢNG SO SÁNH THÔNG SỐ VỚI GAME GỐC
-            bool isExactSpacing = Mathf.Approximately(mgr.beadSpacing, 0.2586f) || Mathf.Approximately(mgr.beadSpacing, 0.26f);
-            bool isExactZigzag = Mathf.Approximately(mgr.zigzagOffset, 0.0828f) || Mathf.Approximately(mgr.zigzagOffset, 0.083f);
-            bool isExactScale = Mathf.Approximately(mgr.beadScale, 0.55f);
-            bool isExactPosZ = Mathf.Approximately(mgr.transform.position.z, 6.0f);
-
-            bool isAllExact = isExactSpacing && isExactZigzag && isExactScale && isExactPosZ;
-
-            if (isAllExact)
-            {
-                EditorGUILayout.HelpBox(
-                    "✅ TOÀN BỘ THÔNG SỐ ĐÃ TRÙNG KHỚP 100% VỚI GAME GỐC COCOS CREATOR:\n" +
-                    $"• Bead Spacing: {mgr.beadSpacing:F4} (Chuẩn gốc Cocos 18.75px = 0.2586m)\n" +
-                    $"• Zigzag Offset: {mgr.zigzagOffset:F4} (Chuẩn gốc Cocos 6px = 0.0828m)\n" +
-                    $"• Bead Scale: {mgr.beadScale:F2} (Vừa khít lưới 0.26m)\n" +
-                    $"• Vị trí Position Z: {mgr.transform.position.z:F2} (Chiếu đúng Canvas Y = +371px)",
-                    MessageType.Info);
-            }
-            else
-            {
-                EditorGUILayout.HelpBox(
-                    "⚠️ CẢNH BÁO: CÓ THÔNG SỐ CHƯA KHỚP VỚI GAME GỐC COCOS:\n" +
-                    $"• Bead Spacing: {mgr.beadSpacing:F4} (Chuẩn gốc: 0.2586 / ~0.26)\n" +
-                    $"• Zigzag Offset: {mgr.zigzagOffset:F4} (Chuẩn gốc: 0.0828 / ~0.083)\n" +
-                    $"• Bead Scale: {mgr.beadScale:F2} (Chuẩn gốc: 0.55)\n" +
-                    $"• Transform Pos Z: {mgr.transform.position.z:F2} (Chuẩn gốc: 6.0)\n\n" +
-                    "👉 Hãy bấm nút vàng [⚡ ĐẶT THÔNG SỐ & VỊ TRÍ CHUẨN GỐC COCOS (1:1)] ở trên để sửa ngay!",
-                    MessageType.Warning);
-            }
-
-            EditorGUILayout.Space(8);
-
-            // VẼ CÁC TRƯỜNG THÔNG SỐ (INSPECTOR)
-            DrawDefaultInspector();
-
-            EditorGUILayout.Space(8);
-
-            // THỐNG KÊ CHI TIẾT
-            int childCount = mgr.transform.childCount;
-            string zigzagStatus = mgr.enableZigzag ? $"BẬT (Offset: {mgr.zigzagOffset:F4})" : "TẮT";
-            EditorGUILayout.HelpBox(
-                $"📊 THỐNG KÊ SCENE:\n" +
-                $"• Số lượng hạt con trong Hierarchy: {childCount}\n" +
-                $"• Tọa độ Transform: {mgr.transform.position}\n" +
-                $"• Scale hạt cát (beadScale): {mgr.beadScale:F2}\n" +
-                $"• Lệch zigzag: {zigzagStatus}",
-                MessageType.None);
+            serializedObject.ApplyModifiedProperties();
         }
     }
 }

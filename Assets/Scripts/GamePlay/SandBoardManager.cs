@@ -1,75 +1,241 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using WhoGetInBus.Data;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
 namespace WhoGetInBus.GamePlay
 {
+    /// <summary>
+    /// Quản lý Bảng Tranh Cát (Sandboard) chuẩn 1:1 theo Cocos Creator gốc (PersonView / BatchSpriteManager).
+    /// Toàn bộ hiển thị chuyển sang hệ thống UGUI (SandBoardGraphic) vẽ bằng 1 Draw Call duy nhất,
+    /// KHÔNG sinh 1.300+ GameObject con giúp game chạy cực mượt 60-120 FPS trên mobile.
+    /// </summary>
+    [RequireComponent(typeof(RectTransform))]
+    [RequireComponent(typeof(SandBoardGraphic))]
+    [ExecuteAlways]
     public class SandBoardManager : MonoBehaviour
     {
         public static SandBoardManager Instance { get; private set; }
 
-        [Header("Kích Thước Tranh Cát (Chuẩn Cocos Creator 1:1)")]
-        public int columns = 40;
-        public int rows = 40;
-        [Tooltip("Khoảng cách giữa các hạt cát (Chuẩn Cocos: 750px / 40 = 18.75px -> 0.2586m ~ 0.26m)")]
-        public float beadSpacing = 0.2586f;
-        [Tooltip("Bán kính hạt cát (Chuẩn: beadSpacing / 2 = 0.1293m)")]
-        public float beadRadius = 0.1293f;
+        [Header("ScriptableObject Cấu Hình Hạt Cát (Lưu Vĩnh Viễn Không Bị Mất)")]
+        [Tooltip("File ScriptableObject chứa toàn bộ thông số hạt cát. Giúp dữ liệu không bị reset khi sửa code C#!")]
+        public SandBoardConfigData config;
 
-        [Header("Thông Số Scale & Vị Trí (Chuẩn Cocos Creator 1:1)")]
-        [Tooltip("Scale của các hạt cát lúc tạo ra (chuẩn 0.55 để vừa khít lưới 0.26m)")]
-        [Range(0.1f, 3f)]
-        public float beadScale = 0.55f;
+        [HideInInspector] public int columns = 40;
+        [HideInInspector] public int rows = 40;
+        [HideInInspector] public float beadRadius = 12.16f;
+        [HideInInspector] public bool enableRoadCutout = true;
+        [HideInInspector] public int cutoutColMin = 13;
+        [HideInInspector] public int cutoutColMax = 26;
+        [HideInInspector] public int cutoutRowMax = 19;
+        [HideInInspector] public TextAsset levelConfigFile;
+        [HideInInspector] public string sandDataString;
 
-        [Tooltip("Vị trí Z của bảng cát (Chuẩn Cocos: 6.0 tương ứng Canvas Y = +371px)")]
-        public float boardPosZ = 6.0f;
+        [Header("Cấu Hình Màn Chơi (Level & Road)")]
+        [Tooltip("Level ID chuẩn gốc Cocos (1001, 1002, 1003...)")]
+        public int levelId = 1001;
+        [Tooltip("ID Tuyến đường (road trong levelNCXHCfg.json)")]
+        public int currentRoadId = 5;
 
-        [Header("Lệch Zigzag Cát (Chuẩn Cocos Creator 1:1)")]
+        [Header("Thông Số Kích Thước UI (Chuẩn Gốc Cocos)")]
+        [Tooltip("Kích thước hạt cát (chuẩn Cocos: 34 x 44 pixel theo tỷ lệ ảnh 48x62, tạo độ lấp lên 20px)")]
+        public Vector2 beadSize = new Vector2(34f, 44f);
+
+        [Tooltip("Scale của các hạt cát (chuẩn 1.0)")]
+        [Range(0.5f, 1.6f)]
+        public float beadScale = 1.0f;
+
+        [Tooltip("Khoảng cách giữa các cột hạt cát trên UI theo chiều ngang (trục X)")]
+        [Range(10f, 40f)]
+        public float beadSpacingX = 24.32f;
+
+        [Tooltip("Khoảng cách giữa các hàng hạt cát trên UI theo chiều dọc (trục Y)")]
+        [Range(10f, 40f)]
+        public float beadSpacingY = 24.32f;
+
+        [HideInInspector]
+        public float beadSpacing = 24.32f;
+        [HideInInspector]
+        public float beadSpacingZ { get => beadSpacingY; set => beadSpacingY = value; }
+
+        [Tooltip("Độ lệch ngang (trái/phải) của toàn bộ bảng cát")]
+        [Range(-100f, 100f)]
+        public float boardOffsetX = 0f;
+
+        [Tooltip("Độ lệch dọc (lên/xuống) của toàn bộ bảng cát")]
+        [Range(-100f, 100f)]
+        public float boardOffsetY = 0f;
+
+        [HideInInspector]
+        public float boardPosZ = 0f;
+
+        [Header("Lệch Zigzag Cát")]
         [Tooltip("Bật/tắt hiệu ứng xếp hạt so le hình zigzag")]
         public bool enableZigzag = true;
 
-        [Tooltip("Độ lệch trục X giữa các hàng xen kẽ nhau (chuẩn Cocos: oddRowOffsetX = 6px -> 0.0828m ~ 0.083m)")]
-        [Range(-0.5f, 0.5f)]
-        public float zigzagOffset = 0.0828f;
+        [Tooltip("Độ lệch trục X giữa các hàng xen kẽ nhau (chuẩn Cocos: nửa khoảng cách cột ~12.16px)")]
+        [Range(-25f, 25f)]
+        public float zigzagOffset = 12.16f;
 
-        [Header("Khoét Rãnh Đường Cong Cho Xe")]
-        public bool enableRoadCutout = true;
-        public int cutoutColMin = 13;
-        public int cutoutColMax = 26;
-        public int cutoutRowMax = 19;
-
-        [Header("Prefab & Material")]
+        [Header("Prefab & Material (Backward Compatibility)")]
         public GameObject beadPrefab;
         public Material beadMaterial;
         public PassengerColorData passengerColors;
+        public Texture2D passengerAtlas;
 
-        [Header("Dữ Liệu Màn Chơi (Level Data)")]
-        [Tooltip("Level ID chuẩn gốc Cocos (1001, 1002, 1003...)")]
-        public int levelId = 1001;
-        [Tooltip("ID Tuyến đường (road trong levelNCXHCfg.json, mặc định = 5)")]
-        public int currentRoadId = 5;
-        public TextAsset levelConfigFile;
-        [TextArea(2, 6)]
-        public string sandDataString;
-
-        // Lưu trữ các hạt trên bảng: [col, row]
-        private GameObject[,] beadObjects;
-        private int[,] beadColorIndices; // -1 nếu rỗng, hoặc 0..17
+        // Ma trận màu sắc: beadColorIndices[col, row] (-1: rỗng/cutout, 0..17: mã màu)
+        private int[,] beadColorIndices;
         private int totalRemainingBeads = 0;
 
+        // Trạng thái animation sạt lở (Collapse) không dùng GameObject, không sinh GC Alloc
+        private Vector2[,] collapseVisualOffsets;
+        private float[,] collapseTimers;
+        private bool isCollapsing = false;
+        private const float CollapseDuration = 0.12f;
+
+        private SandBoardGraphic graphic;
+        private Camera cachedCameraUI;
+        private Camera cachedMainCamera;
+
         public int TotalRemainingBeads => totalRemainingBeads;
+        public int[,] BeadColorIndices => beadColorIndices;
+
+        public void EnsureConfigLoaded()
+        {
+            if (config == null)
+            {
+#if UNITY_EDITOR
+                config = AssetDatabase.LoadAssetAtPath<SandBoardConfigData>("Assets/Data/SandBoardConfigData.asset");
+#else
+                config = Resources.Load<SandBoardConfigData>("SandBoardConfigData");
+#endif
+            }
+            if (config != null)
+            {
+                SyncFromConfig();
+            }
+        }
+
+        public void SyncFromConfig()
+        {
+            if (config == null) return;
+            beadSize = config.beadSize;
+            beadScale = config.beadScale;
+            beadSpacingX = config.beadSpacingX;
+            beadSpacingY = config.beadSpacingY;
+            beadSpacing = config.beadSpacingX;
+            enableZigzag = config.enableZigzag;
+            zigzagOffset = config.zigzagOffset;
+            boardOffsetX = config.boardOffsetX;
+            boardOffsetY = config.boardOffsetY;
+            columns = config.columns;
+            rows = config.rows;
+            if (config.passengerAtlas != null) passengerAtlas = config.passengerAtlas;
+            if (config.passengerColors != null) passengerColors = config.passengerColors;
+
+            UpdateBoardPosition();
+        }
+
+        public void UpdateBoardPosition()
+        {
+            if (config != null)
+            {
+                RectTransform rt = GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    rt.anchoredPosition = config.boardPosition;
+                }
+            }
+        }
+
+        public void SyncToConfig()
+        {
+            if (config == null) return;
+            config.beadSize = beadSize;
+            config.beadScale = beadScale;
+            config.beadSpacingX = beadSpacingX;
+            config.beadSpacingY = beadSpacingY;
+            config.enableZigzag = enableZigzag;
+            config.zigzagOffset = zigzagOffset;
+            config.boardOffsetX = boardOffsetX;
+            config.boardOffsetY = boardOffsetY;
+            config.columns = columns;
+            config.rows = rows;
+            if (passengerAtlas != null) config.passengerAtlas = passengerAtlas;
+            if (passengerColors != null) config.passengerColors = passengerColors;
+
+            RectTransform rt = GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                config.boardPosition = rt.anchoredPosition;
+            }
+#if UNITY_EDITOR
+            EditorUtility.SetDirty(config);
+#endif
+        }
 
         private void Awake()
         {
             Instance = this;
-            transform.position = new Vector3(transform.position.x, transform.position.y, boardPosZ);
+            graphic = GetComponent<SandBoardGraphic>();
+            EnsureConfigLoaded();
+            EnsureAtlasLoaded();
 
-            if (totalRemainingBeads == 0 && transform.childCount > 0)
+            if (beadColorIndices == null || totalRemainingBeads == 0)
             {
-                InitFromExistingChildren();
+                int[,] pixelData = GetOrLoadPixelData();
+                BuildBoard(pixelData, passengerColors, beadMaterial);
+            }
+        }
+
+        private void OnEnable()
+        {
+            Instance = this;
+            if (graphic == null) graphic = GetComponent<SandBoardGraphic>();
+            EnsureConfigLoaded();
+            EnsureAtlasLoaded();
+        }
+
+        private void OnValidate()
+        {
+            if (config != null)
+            {
+                SyncFromConfig();
+            }
+        }
+
+        private void Update()
+        {
+            if (isCollapsing)
+            {
+                UpdateCollapseAnimation();
+            }
+        }
+
+        public void EnsureAtlasLoaded()
+        {
+            if (passengerAtlas == null && config != null && config.passengerAtlas != null)
+            {
+                passengerAtlas = config.passengerAtlas;
+            }
+            if (passengerAtlas == null)
+            {
+#if UNITY_EDITOR
+                passengerAtlas = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Sprite/PassengerAtlas_18.png");
+#else
+                passengerAtlas = Resources.Load<Texture2D>("PassengerAtlas_18");
+#endif
+            }
+            if (config != null && config.passengerAtlas == null && passengerAtlas != null)
+            {
+                config.passengerAtlas = passengerAtlas;
+            }
+            if (graphic != null && graphic.passengerAtlas == null)
+            {
+                graphic.passengerAtlas = passengerAtlas;
             }
         }
 
@@ -91,9 +257,7 @@ namespace WhoGetInBus.GamePlay
                     {
                         for (int c = 0; c < 40; c++)
                         {
-                            // In 3D: r = 0 là đáy (gần cổng đường), r = 39 là đỉnh trên cùng.
-                            // Trong file PixelMap: col = 0..39 (trái sang phải), row = 0..39 (đỉnh trên xuống đáy).
-                            // Vì vậy: 3D col c = json col c; 3D row r = json row (39 - r).
+                            // In 2D UI: r = 0 là đáy (tiếp giáp vòng đón xe), r = 39 là đỉnh trên.
                             pData[r, c] = pixelMap.points[c, 39 - r];
                         }
                     }
@@ -106,19 +270,47 @@ namespace WhoGetInBus.GamePlay
             Debug.LogWarning($"[SandBoardManager] Không tìm thấy dữ liệu level {targetLevelId} chuẩn gốc!");
         }
 
-
-
-        public Vector3 GetBeadLocalPosition(int col, int row)
+        public Vector2 GetBeadUIPosition(int col, int row)
         {
-            float startX = -((columns - 1) * beadSpacing) * 0.5f;
-            float startZ = 0f;
-            float x = startX + col * beadSpacing;
-            if (enableZigzag && (row % 2 != 0))
+            float spX = config != null ? config.beadSpacingX : (beadSpacingX > 0f ? beadSpacingX : (beadSpacing > 0f ? beadSpacing : 24.32f));
+            float spY = config != null ? config.beadSpacingY : (beadSpacingY > 0f ? beadSpacingY : 24.32f);
+            float offX = config != null ? config.boardOffsetX : boardOffsetX;
+            float offY = config != null ? config.boardOffsetY : boardOffsetY;
+            bool zigzag = config != null ? config.enableZigzag : enableZigzag;
+            float zOffset = config != null ? config.zigzagOffset : zigzagOffset;
+            int totalCols = config != null ? config.columns : columns;
+            int totalRows = config != null ? config.rows : rows;
+
+            float startX = -((totalCols - 1) * spX) * 0.5f + offX;
+            float startY = spY * 0.5f + offY;
+
+            float x = startX + col * spX;
+            // Số thứ tự hàng tính từ trên đỉnh tranh cát xuống (0 = hàng trên cùng, totalRows - 1 = hàng đáy cùng)
+            int rowFromTop = (totalRows - 1) - row;
+            if (zigzag && (rowFromTop % 2 != 0))
             {
-                x += zigzagOffset;
+                x += zOffset;
             }
-            float z = startZ + row * beadSpacing;
-            return new Vector3(x, 0.12f, z);
+            float y = startY + row * spY;
+            return new Vector2(x, y);
+        }
+
+        public Vector2 GetCollapseOffset(int col, int row)
+        {
+            if (collapseVisualOffsets != null && col >= 0 && col < columns && row >= 0 && row < rows)
+            {
+                return collapseVisualOffsets[col, row];
+            }
+            return Vector2.zero;
+        }
+
+        public int GetColorAt(int col, int row)
+        {
+            if (beadColorIndices != null && col >= 0 && col < columns && row >= 0 && row < rows)
+            {
+                return beadColorIndices[col, row];
+            }
+            return -1;
         }
 
         public void BuildBoard(int[,] pixelData, GamePrefabData prefabData)
@@ -136,13 +328,15 @@ namespace WhoGetInBus.GamePlay
         {
             passengerColors = pColors;
             beadMaterial = bMat;
-            ClearBoard();
+            EnsureAtlasLoaded();
 
-            // Cập nhật vị trí Z của board
-            transform.position = new Vector3(transform.position.x, transform.position.y, boardPosZ);
+            // Xóa sạch các GameObject con rác cũ nếu có
+            ClearBoardChildren();
 
-            beadObjects = new GameObject[columns, rows];
             beadColorIndices = new int[columns, rows];
+            collapseVisualOffsets = new Vector2[columns, rows];
+            collapseTimers = new float[columns, rows];
+            isCollapsing = false;
             totalRemainingBeads = 0;
 
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
@@ -151,7 +345,6 @@ namespace WhoGetInBus.GamePlay
             {
                 for (int c = 0; c < columns; c++)
                 {
-                    // Kiểm tra vùng khoét rãnh đường đón xe
                     if (enableRoadCutout && IsInRoadCutout(c, r))
                     {
                         beadColorIndices[c, r] = -1;
@@ -175,20 +368,35 @@ namespace WhoGetInBus.GamePlay
                     beadColorIndices[c, r] = colorIdx;
                     totalRemainingBeads++;
                     sb.Append(colorIdx).Append(",");
-
-                    Vector3 localPos = GetBeadLocalPosition(c, r);
-                    GameObject bead = SpawnBeadObject(localPos, colorIdx, c, r);
-                    beadObjects[c, r] = bead;
                 }
             }
 
             if (sb.Length > 0) sb.Length--;
             sandDataString = sb.ToString();
 
-            Debug.Log($"<color=cyan>[SandBoardManager]</color> Đã sinh thành công {totalRemainingBeads} hạt cát (Scale: {beadScale}, PosZ: {boardPosZ}, Zigzag: {(enableZigzag ? zigzagOffset.ToString("F2") : "Tắt")})!");
+            RefreshGraphic();
+
+            Debug.Log($"<color=cyan>[SandBoardManager - UI]</color> Đã nạp thành công {totalRemainingBeads} hạt cát lên UI! (Scale: {beadScale:F2}, 1 Draw Call, 0 GameObject con)");
         }
 
         public void ClearBoard()
+        {
+            ClearBoardChildren();
+            if (beadColorIndices != null)
+            {
+                for (int r = 0; r < rows; r++)
+                {
+                    for (int c = 0; c < columns; c++)
+                    {
+                        beadColorIndices[c, r] = -1;
+                    }
+                }
+            }
+            totalRemainingBeads = 0;
+            RefreshGraphic();
+        }
+
+        private void ClearBoardChildren()
         {
             List<GameObject> toDestroy = new List<GameObject>();
             for (int i = 0; i < transform.childCount; i++)
@@ -200,237 +408,286 @@ namespace WhoGetInBus.GamePlay
                 if (Application.isPlaying) Destroy(g);
                 else DestroyImmediate(g);
             }
-            totalRemainingBeads = 0;
         }
 
         public bool IsInRoadCutout(int col, int row)
         {
-            // Kiểm tra theo cấu hình RoadConfigData chuẩn gốc từ roadNCXHCfg.json
             var roadCfg = WhoGetInBus.Data.LevelConfigLoader.GetRoadConfig(currentRoadId);
             if (roadCfg != null)
             {
-                // In 3D: row 0 là đáy (gần cổng đường), row 39 là đỉnh trên
-                // Trong roadCfg.points: col là 0..39, row là 0 (đỉnh) .. 39 (đáy)
                 int jsonRow = 39 - row;
                 if (col >= 0 && col < 40 && jsonRow >= 0 && jsonRow < 40)
                 {
                     return roadCfg.IsCutout(col, jsonRow);
                 }
             }
-
-            // Fallback nếu không có file cấu hình road
-            if (row > cutoutRowMax) return false;
-            if (col >= cutoutColMin && col <= cutoutColMax)
-            {
-                int centerCol = (cutoutColMin + cutoutColMax) / 2;
-                float distFromCenter = Mathf.Abs(col - centerCol);
-                float maxAllowedRow = cutoutRowMax - (distFromCenter * 0.7f);
-                return row <= maxAllowedRow;
-            }
             return false;
         }
 
-        private GameObject SpawnBeadObject(Vector3 localPos, int colorIdx, int col = -1, int row = -1)
+        /// <summary>
+        /// Tìm hạt cùng màu ở hàng đáy để đón lên xe bus.
+        /// Chuyển đổi vị trí hạt từ 2D UI Canvas sang tọa độ 3D World Space chính xác để xe bus đón.
+        /// </summary>
+        public bool TryGetPassengerAtBottom(GameColorType targetColor, out GameObject beadObj, out Vector3 worldPos, out int foundCol, out int foundRow)
         {
-            GameObject bead = null;
-            if (beadPrefab != null)
+            beadObj = null;
+            worldPos = Vector3.zero;
+            foundCol = -1;
+            foundRow = -1;
+
+            if (beadColorIndices == null)
             {
-#if UNITY_EDITOR
-                if (!Application.isPlaying)
-                {
-                    bead = (GameObject)PrefabUtility.InstantiatePrefab(beadPrefab, transform);
-                }
-                else
-                {
-                    bead = Instantiate(beadPrefab, transform);
-                }
-#else
-                bead = Instantiate(beadPrefab, transform);
-#endif
-                bead.transform.localScale = Vector3.one * beadScale;
-            }
-            else
-            {
-                bead = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                bead.transform.SetParent(transform);
-                var colComp = bead.GetComponent<Collider>();
-                if (colComp != null)
-                {
-                    if (Application.isPlaying) Destroy(colComp);
-                    else DestroyImmediate(colComp);
-                }
-                bead.transform.localScale = Vector3.one * beadScale;
+                BuildBoard(GetOrLoadPixelData(), passengerColors, beadMaterial);
             }
 
-            if (col >= 0 && row >= 0)
+            int targetIdx = (int)targetColor;
+
+            List<int> colOrder = new List<int>();
+            int center = columns / 2;
+            for (int offset = 0; offset <= center; offset++)
             {
-                bead.name = $"Passenger_{col}_{row}_{colorIdx}";
-            }
-            else
-            {
-                bead.name = $"Passenger_{colorIdx}";
+                if (center - offset >= 0) colOrder.Add(center - offset);
+                if (offset > 0 && center + offset < columns) colOrder.Add(center + offset);
             }
 
-            bead.transform.localPosition = localPos;
-            bead.transform.localRotation = (beadPrefab != null) ? beadPrefab.transform.localRotation : Quaternion.identity;
-
-            // 1. NẾU DÙNG SPRITE RENDERER (NHƯ PASSENGER.PREFAB): CHỈ ĐỔI ẢNH (SPRITE), ĐỂ NGUYÊN MATERIAL CỦA SPRITE RENDERER!
-            SpriteRenderer sr = bead.GetComponentInChildren<SpriteRenderer>();
-            if (sr != null)
+            foreach (int c in colOrder)
             {
-                if (passengerColors != null && passengerColors.data.ContainsKey((GameColorType)colorIdx))
+                for (int r = 0; r < rows; r++)
                 {
-                    sr.sprite = passengerColors.data[(GameColorType)colorIdx];
-                }
-            }
-            else
-            {
-                // 2. NẾU LÀ 3D MESH / SPHERE PRIMITIVE: MỚI GÁN MATERIAL MÀU
-                MeshRenderer mr = bead.GetComponentInChildren<MeshRenderer>();
-                if (mr != null)
-                {
-                    if (beadMaterial != null) mr.material = beadMaterial;
-                    mr.material.color = GetPaletteColor(colorIdx);
+                    if (beadColorIndices != null && beadColorIndices[c, r] >= 0)
+                    {
+                        if (beadColorIndices[c, r] == targetIdx)
+                        {
+                            foundCol = c;
+                            foundRow = r;
+                            worldPos = GetPassenger3DWorldPosition(c, r);
+                            return true;
+                        }
+                        break;
+                    }
                 }
             }
 
-            return bead;
+            return false;
         }
-
-        private void Reset()
-        {
-            ApplyCocosOriginalSettings();
-        }
-
-#if UNITY_EDITOR
-        private void OnValidate()
-        {
-            if (transform.position.z != boardPosZ)
-            {
-                transform.position = new Vector3(transform.position.x, transform.position.y, boardPosZ);
-            }
-        }
-#endif
 
         /// <summary>
-        /// Áp dụng 100% đúng vị trí và thông số chuẩn gốc Cocos Creator (1:1).
+        /// Chuyển đổi tọa độ 1 hạt từ UI Screen Space sang tọa độ 3D World (mặt sàn Y = 0.35 đón xe bus).
         /// </summary>
-        [ContextMenu("⚡ Áp Dụng Thông Số Chuẩn Gốc Cocos (1:1)")]
-        public void ApplyCocosOriginalSettings()
+        public Vector3 GetPassenger3DWorldPosition(int col, int row)
         {
-            columns = 40;
-            rows = 40;
-            // Cocos: canvas 750px / 40 cols = 18.75px -> chiếu sang Unity 3D (ortho size 9.2): 0.2586m (~0.26m)
-            beadSpacing = 0.2586f;
-            beadRadius = 0.1293f;
-            beadScale = 0.55f;     // Khớp với sprite width 0.48m * 0.55 = 0.264m vừa khít lưới
-            boardPosZ = 6.0f;      // Tọa độ Z chuẩn chiếu lên screen Y = +371px
-            enableZigzag = true;
-            zigzagOffset = 0.0828f;// oddRowOffsetX = 6px -> 0.0828m (~0.083m)
-            enableRoadCutout = true;
-            cutoutColMin = 13;
-            cutoutColMax = 26;
-            cutoutRowMax = 19;
+            Vector2 uiPos = GetBeadUIPosition(col, row);
+            Vector3 uiWorldPos = transform.TransformPoint(new Vector3(uiPos.x, uiPos.y, 0f));
 
-            // Đặt vị trí, góc quay và scale chuẩn của SandBoard_Manager GameObject
-            transform.position = new Vector3(0f, 0f, 6.0f);
-            transform.rotation = Quaternion.identity;
-            transform.localScale = Vector3.one;
+            Camera camUI = CameraUI;
+            Camera cam3D = MainCamera;
 
-            UpdateExistingBeads();
-
-#if UNITY_EDITOR
-            Undo.RecordObject(transform, "Apply Cocos Original Settings");
-            Undo.RecordObject(this, "Apply Cocos Original Settings");
-            EditorUtility.SetDirty(gameObject);
-            EditorUtility.SetDirty(this);
-            SceneView.RepaintAll();
-#endif
-            Debug.Log("<color=green>[SandBoardManager]</color> <b>ĐÃ ÁP DỤNG THÀNH CÔNG THÔNG SỐ CHUẨN GỐC COCOS 1:1!</b>\n" +
-                      $"• Bead Spacing: {beadSpacing} (~0.26m)\n" +
-                      $"• Zigzag Offset: {zigzagOffset} (~0.083m)\n" +
-                      $"• Bead Scale: {beadScale}\n" +
-                      $"• Transform Position: {transform.position}");
+            if (camUI != null && cam3D != null)
+            {
+                Vector3 screenPos = camUI.WorldToScreenPoint(uiWorldPos);
+                Ray ray = cam3D.ScreenPointToRay(screenPos);
+                Plane groundPlane = new Plane(Vector3.up, new Vector3(0f, 0.35f, 0f));
+                if (groundPlane.Raycast(ray, out float enter))
+                {
+                    return ray.GetPoint(enter);
+                }
+            }
+            return uiWorldPos;
         }
 
-        [ContextMenu("⚡ Cập Nhật Scale & Lệch Zigzag")]
-        public void UpdateExistingBeads()
+        private Camera CameraUI
         {
-            // Cập nhật vị trí Z của board
-            transform.position = new Vector3(transform.position.x, transform.position.y, boardPosZ);
-
-            int count = transform.childCount;
-            if (count == 0)
+            get
             {
-                Debug.LogWarning("[SandBoardManager] Hiện không có hạt cát nào là con của SandBoard_Manager để cập nhật. Hãy nhấn 'Tái Tạo Tranh Cát' để tạo mới.");
+                if (cachedCameraUI == null)
+                {
+                    var canvas = GetComponentInParent<Canvas>();
+                    if (canvas != null && canvas.worldCamera != null) cachedCameraUI = canvas.worldCamera;
+                    else
+                    {
+                        var go = GameObject.Find("Camera UI 3D");
+                        if (go != null) cachedCameraUI = go.GetComponent<Camera>();
+                    }
+                }
+                return cachedCameraUI;
+            }
+        }
+
+        private Camera MainCamera
+        {
+            get
+            {
+                if (cachedMainCamera == null)
+                {
+                    cachedMainCamera = Camera.main;
+                    if (cachedMainCamera == null)
+                    {
+                        var go = GameObject.Find("Main Camera");
+                        if (go != null) cachedMainCamera = go.GetComponent<Camera>();
+                    }
+                }
+                return cachedMainCamera;
+            }
+        }
+
+        /// <summary>
+        /// Tiêu thụ 1 hạt cát và kích hoạt hiệu ứng sạt lở (Collapse) rơi xuống mượt mà.
+        /// </summary>
+        public void ConsumeBead(int c, int r)
+        {
+            if (c < 0 || c >= columns || r < 0 || r >= rows) return;
+            if (beadColorIndices == null || beadColorIndices[c, r] < 0) return;
+
+            beadColorIndices[c, r] = -1;
+            totalRemainingBeads = Mathf.Max(0, totalRemainingBeads - 1);
+
+            CollapseColumn(c, r);
+            RefreshGraphic();
+
+            if (totalRemainingBeads <= 0)
+            {
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.OnLevelVictory();
+                }
+            }
+        }
+
+        private void CollapseColumn(int c, int startR)
+        {
+            if (beadColorIndices == null) return;
+            if (collapseVisualOffsets == null) collapseVisualOffsets = new Vector2[columns, rows];
+            if (collapseTimers == null) collapseTimers = new float[columns, rows];
+
+            for (int r = startR + 1; r < rows; r++)
+            {
+                if (beadColorIndices[c, r] >= 0)
+                {
+                    int targetRow = r - 1;
+                    beadColorIndices[c, targetRow] = beadColorIndices[c, r];
+                    beadColorIndices[c, r] = -1;
+
+                    // Tính offset hình ảnh từ vị trí cũ rơi xuống vị trí mới
+                    Vector2 oldPos = GetBeadUIPosition(c, r);
+                    Vector2 newPos = GetBeadUIPosition(c, targetRow);
+                    collapseVisualOffsets[c, targetRow] = oldPos - newPos;
+                    collapseTimers[c, targetRow] = CollapseDuration;
+                    isCollapsing = true;
+                }
+            }
+        }
+
+        private void UpdateCollapseAnimation()
+        {
+            if (collapseTimers == null || collapseVisualOffsets == null)
+            {
+                isCollapsing = false;
                 return;
             }
 
-            float startX = -((columns - 1) * beadSpacing) * 0.5f;
+            bool anyActive = false;
+            float dt = Time.deltaTime;
 
-            for (int i = 0; i < count; i++)
+            for (int c = 0; c < columns; c++)
             {
-                Transform child = transform.GetChild(i);
-                if (child == null) continue;
-
-#if UNITY_EDITOR
-                Undo.RecordObject(child, "Update Bead Scale & Position");
-#endif
-                child.localScale = Vector3.one * beadScale;
-
-                int col = -1;
-                int row = -1;
-                int colorIdx = 0;
-
-                string[] tokens = child.name.Split('_');
-                if (tokens.Length >= 4 && int.TryParse(tokens[1], out int pCol) && int.TryParse(tokens[2], out int pRow))
+                for (int r = 0; r < rows; r++)
                 {
-                    col = pCol;
-                    row = pRow;
-                    if (int.TryParse(tokens[3], out int pColor)) colorIdx = pColor;
-                }
-                else if (tokens.Length >= 2 && int.TryParse(tokens[1], out int cOnly))
-                {
-                    colorIdx = cOnly;
-                    row = Mathf.Clamp(Mathf.RoundToInt(child.localPosition.z / beadSpacing), 0, rows - 1);
-                    col = Mathf.Clamp(Mathf.RoundToInt((child.localPosition.x - startX) / beadSpacing), 0, columns - 1);
-                    child.name = $"Passenger_{col}_{row}_{colorIdx}";
-                }
-                else
-                {
-                    row = Mathf.Clamp(Mathf.RoundToInt(child.localPosition.z / beadSpacing), 0, rows - 1);
-                    col = Mathf.Clamp(Mathf.RoundToInt((child.localPosition.x - startX) / beadSpacing), 0, columns - 1);
-                }
-
-                if (col >= 0 && row >= 0)
-                {
-                    child.localPosition = GetBeadLocalPosition(col, row);
+                    if (collapseTimers[c, r] > 0f)
+                    {
+                        collapseTimers[c, r] -= dt;
+                        if (collapseTimers[c, r] <= 0f)
+                        {
+                            collapseTimers[c, r] = 0f;
+                            collapseVisualOffsets[c, r] = Vector2.zero;
+                        }
+                        else
+                        {
+                            float t = collapseTimers[c, r] / CollapseDuration;
+                            // Easing rơi mượt mà
+                            collapseVisualOffsets[c, r] *= t;
+                            anyActive = true;
+                        }
+                    }
                 }
             }
 
+            isCollapsing = anyActive;
+            RefreshGraphic();
+        }
+
+        public void RefreshGraphic()
+        {
+            if (graphic == null) graphic = GetComponent<SandBoardGraphic>();
+            if (graphic != null)
+            {
+                graphic.SetVerticesDirty();
+            }
+        }
+
+        public void UpdateBeadScalesOnly()
+        {
+            RefreshGraphic();
+        }
+
+        public void UpdateExistingBeads()
+        {
+            RefreshGraphic();
+        }
+
+        [ContextMenu("⚡ Áp Dụng Thông Số Chuẩn Gốc Cocos (1:1)")]
+        public void ApplyCocosOriginalSettings()
+        {
+            if (config != null)
+            {
+                config.ResetToCocosDefault();
+                SyncFromConfig();
+            }
+            else
+            {
+                columns = 40;
+                rows = 40;
+                beadSpacingX = 24.32f;
+                beadSpacingY = 24.32f;
+                beadSpacing = 24.32f;
+                beadSize = new Vector2(34f, 44f);
+                beadScale = 1.0f;
+                boardOffsetX = 0f;
+                boardOffsetY = 0f;
+                enableZigzag = true;
+                zigzagOffset = 12.16f;
+            }
+
+            EnsureAtlasLoaded();
+            ClearBoardChildren();
+            RefreshGraphic();
+
 #if UNITY_EDITOR
-            Undo.RecordObject(transform, "Update Board Position");
+            Undo.RecordObject(this, "Apply Cocos Original Settings");
             EditorUtility.SetDirty(gameObject);
+            EditorUtility.SetDirty(this);
+            if (config != null)
+            {
+                EditorUtility.SetDirty(config);
+                AssetDatabase.SaveAssets();
+            }
+            SceneView.RepaintAll();
 #endif
-            Debug.Log($"<color=green>[SandBoardManager]</color> Đã cập nhật xong {count} hạt cát! (Scale: {beadScale}, Zigzag: {(enableZigzag ? zigzagOffset.ToString("F2") : "Tắt")}, PosZ: {boardPosZ})");
+            Debug.Log("<color=green>[SandBoardManager - UI]</color> <b>ĐÃ ÁP DỤNG THÔNG SỐ CHUẨN GỐC COCOS 1:1 VÀ LƯU VÀO CONFIG!</b>");
         }
 
         [ContextMenu("🔄 Tái Tạo Toàn Bộ Tranh Cát")]
         public void RebuildBoardInEditor()
         {
 #if UNITY_EDITOR
-            if (beadPrefab == null || passengerColors == null || beadMaterial == null)
+            if (passengerColors == null)
             {
                 var prefabData = AssetDatabase.LoadAssetAtPath<GamePrefabData>("Assets/Data/GamePrefabData.asset");
                 if (prefabData != null)
                 {
-                    if (beadPrefab == null) beadPrefab = prefabData.passengerPrefab;
-                    if (beadMaterial == null) beadMaterial = prefabData.beadMaterial;
-                    if (passengerColors == null) passengerColors = prefabData.passengerColors;
+                    passengerColors = prefabData.passengerColors;
                 }
             }
 #endif
-
             int[,] pixelData = GetOrLoadPixelData();
             BuildBoard(pixelData, passengerColors, beadMaterial);
 
@@ -443,7 +700,6 @@ namespace WhoGetInBus.GamePlay
         {
             int[,] pixelData = new int[rows, columns];
 
-            // 1. Thử lấy từ LevelConfigLoader chuẩn gốc trước tiên
             if (levelId > 0)
             {
                 var levelData = WhoGetInBus.Data.LevelConfigLoader.LoadLevel(levelId);
@@ -468,7 +724,6 @@ namespace WhoGetInBus.GamePlay
                 }
             }
 
-            // 2. Thử lấy từ sandDataString nếu có
             if (!string.IsNullOrEmpty(sandDataString))
             {
                 string[] tokens = sandDataString.Split(',');
@@ -493,50 +748,7 @@ namespace WhoGetInBus.GamePlay
                 }
             }
 
-            // 2. Thử lấy từ file level JSON
-            string jsonContent = null;
-            if (levelConfigFile != null)
-            {
-                jsonContent = levelConfigFile.text;
-            }
-#if UNITY_EDITOR
-            else
-            {
-                var defaultJson = AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Scene_Data/Levels/Level_1_Config.json");
-                if (defaultJson != null)
-                {
-                    levelConfigFile = defaultJson;
-                    jsonContent = defaultJson.text;
-                }
-            }
-#endif
-
-            if (!string.IsNullOrEmpty(jsonContent))
-            {
-                var sandMatch = System.Text.RegularExpressions.Regex.Match(jsonContent, "\"sand_data\"\\s*:\\s*\"([^\"]+)\"");
-                if (sandMatch.Success)
-                {
-                    string[] tokens = sandMatch.Groups[1].Value.Split(',');
-                    for (int r = 0; r < rows; r++)
-                    {
-                        for (int c = 0; c < columns; c++)
-                        {
-                            int idx = r * columns + c;
-                            if (idx < tokens.Length && int.TryParse(tokens[idx], out int val))
-                            {
-                                pixelData[r, c] = val;
-                            }
-                            else
-                            {
-                                pixelData[r, c] = -1;
-                            }
-                        }
-                    }
-                    return pixelData;
-                }
-            }
-
-            // 3. Fallback: Nếu không có dữ liệu, tạo mẫu màu thử nghiệm (Test Pattern) để người dùng xem luôn
+            // Fallback Test Pattern
             for (int r = 0; r < rows; r++)
             {
                 for (int c = 0; c < columns; c++)
@@ -545,46 +757,6 @@ namespace WhoGetInBus.GamePlay
                 }
             }
             return pixelData;
-        }
-
-        public void InitFromExistingChildren()
-        {
-            beadObjects = new GameObject[columns, rows];
-            beadColorIndices = new int[columns, rows];
-            totalRemainingBeads = 0;
-
-            float startX = -((columns - 1) * beadSpacing) * 0.5f;
-
-            for (int i = 0; i < transform.childCount; i++)
-            {
-                Transform child = transform.GetChild(i);
-                if (child == null) continue;
-
-                int col = -1;
-                int row = -1;
-                int colorIdx = 0;
-
-                string[] tokens = child.name.Split('_');
-                if (tokens.Length >= 4 && int.TryParse(tokens[1], out int pCol) && int.TryParse(tokens[2], out int pRow))
-                {
-                    col = pCol;
-                    row = pRow;
-                    if (int.TryParse(tokens[3], out int pColor)) colorIdx = pColor;
-                }
-                else if (tokens.Length >= 2 && int.TryParse(tokens[1], out int cOnly))
-                {
-                    colorIdx = cOnly;
-                    row = Mathf.Clamp(Mathf.RoundToInt(child.localPosition.z / beadSpacing), 0, rows - 1);
-                    col = Mathf.Clamp(Mathf.RoundToInt((child.localPosition.x - startX) / beadSpacing), 0, columns - 1);
-                }
-
-                if (col >= 0 && col < columns && row >= 0 && row < rows)
-                {
-                    beadObjects[col, row] = child.gameObject;
-                    beadColorIndices[col, row] = colorIdx;
-                    totalRemainingBeads++;
-                }
-            }
         }
 
         public Color GetPaletteColor(int colorIdx)
@@ -613,125 +785,6 @@ namespace WhoGetInBus.GamePlay
 
             if (colorIdx >= 0 && colorIdx < palette.Length) return palette[colorIdx];
             return Color.white;
-        }
-
-        public bool TryGetPassengerAtBottom(GameColorType targetColor, out GameObject beadObj, out Vector3 worldPos, out int foundCol, out int foundRow)
-        {
-            beadObj = null;
-            worldPos = Vector3.zero;
-            foundCol = -1;
-            foundRow = -1;
-
-            if (beadObjects == null || beadColorIndices == null)
-            {
-                InitFromExistingChildren();
-            }
-
-            int targetIdx = (int)targetColor;
-
-            // Quét từ các cột gần trung tâm trước
-            List<int> colOrder = new List<int>();
-            int center = columns / 2;
-            for (int offset = 0; offset <= center; offset++)
-            {
-                if (center - offset >= 0) colOrder.Add(center - offset);
-                if (offset > 0 && center + offset < columns) colOrder.Add(center + offset);
-            }
-
-            foreach (int c in colOrder)
-            {
-                for (int r = 0; r < rows; r++)
-                {
-                    if (beadColorIndices != null && beadColorIndices[c, r] >= 0)
-                    {
-                        if (beadColorIndices[c, r] == targetIdx)
-                        {
-                            beadObj = beadObjects[c, r];
-                            if (beadObj != null)
-                            {
-                                worldPos = beadObj.transform.position;
-                                foundCol = c;
-                                foundRow = r;
-                                return true;
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        public void ConsumeBead(int c, int r)
-        {
-            if (c < 0 || c >= columns || r < 0 || r >= rows) return;
-
-            if (beadObjects != null && beadObjects[c, r] != null)
-            {
-                Destroy(beadObjects[c, r]);
-                beadObjects[c, r] = null;
-            }
-
-            if (beadColorIndices != null)
-            {
-                beadColorIndices[c, r] = -1;
-            }
-            totalRemainingBeads = Mathf.Max(0, totalRemainingBeads - 1);
-
-            // Kích hoạt hiệu ứng cát sạt lở rơi xuống bù vào vị trí trống (ASMR gravity collapse)
-            CollapseColumn(c, r);
-
-            if (totalRemainingBeads <= 0)
-            {
-                if (GameManager.Instance != null)
-                {
-                    GameManager.Instance.OnLevelVictory();
-                }
-            }
-        }
-
-        private void CollapseColumn(int c, int startR)
-        {
-            if (beadColorIndices == null || beadObjects == null) return;
-
-            // Dồn tất cả hạt phía trên ô startR tụt xuống 1 nấc
-            for (int r = startR + 1; r < rows; r++)
-            {
-                if (beadColorIndices[c, r] >= 0)
-                {
-                    int targetRow = r - 1;
-                    beadColorIndices[c, targetRow] = beadColorIndices[c, r];
-                    beadObjects[c, targetRow] = beadObjects[c, r];
-
-                    beadColorIndices[c, r] = -1;
-                    beadObjects[c, r] = null;
-
-                    // Cho hạt trượt dồn về phía trước (trục Z và X theo zigzag) mượt mà
-                    if (beadObjects[c, targetRow] != null)
-                    {
-                        Vector3 targetLocalPos = GetBeadLocalPosition(c, targetRow);
-                        StartCoroutine(AnimateFall(beadObjects[c, targetRow], targetLocalPos));
-                    }
-                }
-            }
-        }
-
-        private IEnumerator AnimateFall(GameObject bead, Vector3 endPos)
-        {
-            if (bead == null) yield break;
-            Vector3 startPos = bead.transform.localPosition;
-            float elapsed = 0f;
-            float duration = 0.12f;
-
-            while (elapsed < duration && bead != null)
-            {
-                elapsed += Time.deltaTime;
-                bead.transform.localPosition = Vector3.Lerp(startPos, endPos, elapsed / duration);
-                yield return null;
-            }
-
-            if (bead != null) bead.transform.localPosition = endPos;
         }
     }
 }

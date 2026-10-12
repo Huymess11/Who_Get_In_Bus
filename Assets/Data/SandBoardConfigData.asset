@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 715896277f61b1c4caec827d96e8e6e2, type: 3}
+  m_Name: SandBoardConfigData
+  m_EditorClassIdentifier: WhoGetInBus.Data:SandBoardConfigData
+  boardPosition: {x: 0, y: -3.5}
+  beadSize: {x: 34, y: 44}
+  beadScale: 1
+  beadSpacingX: 27
+  beadSpacingY: 24.32
+  enableZigzag: 1
+  zigzagOffset: 12.16
+  boardOffsetX: 0
+  boardOffsetY: 0
+  collapseDuration: 0.12
+  columns: 40
+  rows: 40
+  passengerAtlas: {fileID: 2800000, guid: 5a7e6b12f48c901e3b2a7d8c9e0f1a2b, type: 3}
+  passengerColors: {fileID: 11400000, guid: 9c212d7341ac5634bbac426e8e3998bc, type: 2}
