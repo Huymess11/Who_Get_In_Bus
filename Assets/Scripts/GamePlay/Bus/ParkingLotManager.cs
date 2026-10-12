@@ -20,6 +20,38 @@ namespace WhoGetInBus.GamePlay
         public GameObject extraCarPrefab; // Xe buýt 2 tầng (Extra Car)
         public BusColorData busColors;
 
+        [Header("Tham Chiếu BusContainer Layout")]
+        public WorldSpaceLayout busContainerLayout;
+
+        public void EnsureBusContainerLayout(int cols)
+        {
+            if (busContainerLayout == null)
+            {
+                var busContainer = GameObject.Find("BusContainer");
+                if (busContainer != null)
+                {
+                    busContainerLayout = busContainer.GetComponent<WorldSpaceLayout>();
+                }
+            }
+
+            if (busContainerLayout != null)
+            {
+                busContainerLayout.SetupForColumnCount(cols);
+            }
+        }
+
+        public Vector3 GetSlotPosition(int colIndex, int rowIndex, int totalCols)
+        {
+            if (busContainerLayout != null && colIndex < busContainerLayout.transform.childCount)
+            {
+                Transform point = busContainerLayout.transform.GetChild(colIndex);
+                return new Vector3(point.position.x, point.position.y, point.position.z - rowIndex * slotSpacingZ);
+            }
+
+            float startX = -((totalCols - 1) * slotSpacingX) * 0.5f;
+            return transform.position + new Vector3(startX + colIndex * slotSpacingX, 0f, -rowIndex * slotSpacingZ);
+        }
+
         // Lưu trữ danh sách xe theo từng cột: column[c] chứa hàng đợi các xe từ trước ra sau
         private List<List<CarLoopFollower>> columnsOfCars = new List<List<CarLoopFollower>>();
 
@@ -76,6 +108,8 @@ namespace WhoGetInBus.GamePlay
 
             columnsOfCars.Clear();
 
+            EnsureBusContainerLayout(cols);
+
             // Tính khoảng cách cột chuẩn Cocos Creator 3.x
             slotSpacingX = Mathf.Min(1.6f, 5.6f / Mathf.Max(1, cols - 1));
             slotSpacingZ = 1.8f;
@@ -102,7 +136,7 @@ namespace WhoGetInBus.GamePlay
                     // Bãi đỗ xe luôn sinh ra xe thường (Car.prefab) theo đúng luật
                     GameObject chosenPrefab = (carPrefab != null) ? carPrefab : extraCarPrefab;
 
-                    Vector3 slotPos = transform.position + new Vector3(startX + c * slotSpacingX, 0f, -r * slotSpacingZ);
+                    Vector3 slotPos = GetSlotPosition(c, r, cols);
                     GameObject carObj = null;
 #if UNITY_EDITOR
                     if (!Application.isPlaying && chosenPrefab != null)
@@ -238,14 +272,13 @@ namespace WhoGetInBus.GamePlay
             if (colIndex < 0 || colIndex >= columnsOfCars.Count) return;
 
             var colList = columnsOfCars[colIndex];
-            float startX = -((columnsOfCars.Count - 1) * slotSpacingX) * 0.5f;
 
             for (int r = 0; r < colList.Count; r++)
             {
                 CarLoopFollower car = colList[r];
                 if (car != null)
                 {
-                    Vector3 targetPos = transform.position + new Vector3(startX + colIndex * slotSpacingX, 0f, -r * slotSpacingZ);
+                    Vector3 targetPos = GetSlotPosition(colIndex, r, columnsOfCars.Count);
                     StartCoroutine(SlideCarForward(car, targetPos));
                 }
             }

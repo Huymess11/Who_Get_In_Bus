@@ -18,3 +18,11 @@ public enum GameColorType {
     Pink = 16,          // Hồng phấn
     Teal = 17           // Xanh bạc hà
 }
+
+public enum BoosterType
+{
+    MAGNET,
+    SUFFLE,
+    VACCUM,
+    NONE
+}

@@ -19,6 +19,16 @@ public class WorldSpaceLayout : MonoBehaviour
     [Tooltip("Dành cho ForceRefresh cũ: Có tính luôn kích thước các mesh con hay không?")]
     public bool includeChildrenBounds = true;
 
+    [Title("Columns Dynamic Spacing")]
+    [Tooltip("Khoảng cách khi có 1, 2, 3, 4 hàng/cột xe")]
+    public float spacing4OrLess = 0.5f;
+    [Tooltip("Khoảng cách khi có 5 hàng/cột xe")]
+    public float spacing5 = 0.35f;
+    [Tooltip("Khoảng cách khi có 6 hàng/cột xe")]
+    public float spacing6 = 0.15f;
+    [Tooltip("Kích thước vật thể mặc định khi đo đối tượng không có Renderer (ví dụ empty bus point)")]
+    public float defaultItemSize = 0.87129f;
+
     [Title("Custom Targets")]
     [Tooltip("Kéo thả MESH vào đây. Vị trí 0 đo cho Child 0, Vị trí 1 đo cho Child 1...")]
     public List<Transform> targetCustomer;
@@ -42,6 +52,71 @@ public class WorldSpaceLayout : MonoBehaviour
     {
         var children = GetActiveChildren();
         ApplyLayout(children, targetCustomer, false, useTween);
+    }
+
+    /// <summary>
+    /// Lấy giá trị spacing theo số lượng hàng/cột xe:
+    /// - 1, 2, 3, 4 hàng xe: 0.5
+    /// - 5 hàng xe: 0.35
+    /// - 6 hàng xe: 0.15
+    /// </summary>
+    public float GetSpacingForColumns(int columnCount)
+    {
+        if (columnCount <= 4) return spacing4OrLess;
+        if (columnCount == 5) return spacing5;
+        return spacing6;
+    }
+
+    /// <summary>
+    /// Cập nhật spacing theo số lượng cột xe
+    /// </summary>
+    public void UpdateSpacingForColumns(int columnCount)
+    {
+        spacing = GetSpacingForColumns(columnCount);
+    }
+
+    /// <summary>
+    /// Thiết lập tự động cho số lượng hàng/cột xe:
+    /// Cập nhật spacing, bật/tắt đúng số lượng bus point và làm mới vị trí
+    /// </summary>
+    public void SetupForColumnCount(int columnCount)
+    {
+        UpdateSpacingForColumns(columnCount);
+
+        int childCount = transform.childCount;
+        for (int i = 0; i < childCount; i++)
+        {
+            transform.GetChild(i).gameObject.SetActive(i < columnCount);
+        }
+
+        ForceRefresh();
+    }
+
+    [Button("Chuyển Đổi Con Sang Bus Point (Tĩnh)"), PropertySpace(10)]
+    public void ConvertCarsToBusPoints()
+    {
+        var existingChildren = new List<GameObject>();
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            existingChildren.Add(transform.GetChild(i).gameObject);
+        }
+
+        foreach (var c in existingChildren)
+        {
+            if (Application.isPlaying) Destroy(c);
+            else DestroyImmediate(c);
+        }
+
+        // Tạo 6 bus points chuẩn tĩnh
+        for (int i = 0; i < 6; i++)
+        {
+            string pName = i == 0 ? "bus point" : $"bus point ({i})";
+            GameObject point = new GameObject(pName);
+            point.transform.SetParent(transform, false);
+            point.SetActive(i < 4);
+        }
+
+        SetupForColumnCount(4);
     }
 
     private void ApplyLayout(List<Transform> objectsToMove, List<Transform> objectsToMeasure, bool calcChildren, bool useTween)
@@ -128,7 +203,14 @@ public class WorldSpaceLayout : MonoBehaviour
     {
         Renderer[] renderers = includeChildren ? t.GetComponentsInChildren<Renderer>() : t.GetComponents<Renderer>();
         
-        if (renderers.Length == 0) return new Bounds(t.position, Vector3.zero);
+        if (renderers.Length == 0)
+        {
+            if (defaultItemSize > 0f)
+            {
+                return new Bounds(t.position, new Vector3(defaultItemSize, defaultItemSize, defaultItemSize));
+            }
+            return new Bounds(t.position, Vector3.zero);
+        }
 
         Bounds combined = renderers[0].bounds;
         for (int i = 1; i < renderers.Length; i++) 

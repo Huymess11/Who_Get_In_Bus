@@ -257,5 +257,144 @@ namespace WhoGetInBus.GamePlay
                 }
             }
         }
+
+        /// <summary>
+        /// Nạp và sinh các điểm Waypoints đường đua từ cấu hình roadNCXHCfg.json
+        /// </summary>
+        public void LoadRoadFromConfig(int roadId, GamePrefabData pData = null)
+        {
+            if (pData != null) prefabData = pData;
+            if (prefabData != null)
+            {
+                if (extraCarPrefab == null) extraCarPrefab = prefabData.extraCarPrefab;
+                if (busColors == null) busColors = prefabData.busColors;
+            }
+
+            var roadData = WhoGetInBus.Data.LevelConfigLoader.GetRoadConfig(roadId);
+            if (roadData == null)
+            {
+                Debug.LogWarning($"[LoopTrackSystem] Không tìm thấy Road #{roadId}!");
+                return;
+            }
+
+            if (roadData.speed > 0f) baseSpeed = roadData.speed;
+
+            // 1. Dọn dẹp waypoints cũ (con của LoopTrackSystem)
+            var toDestroy = new List<GameObject>();
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                toDestroy.Add(transform.GetChild(i).gameObject);
+            }
+            foreach (var g in toDestroy)
+            {
+                if (Application.isPlaying) Destroy(g);
+                else DestroyImmediate(g);
+            }
+
+            loopWaypoints.Clear();
+            exitWaypoints.Clear();
+
+            // 2. Nạp Loop Waypoints từ roadData.loop_path_root
+            List<Vector3> loopCoords = ParseCoordinatesRaw(roadData.loop_path_root);
+            for (int i = 0; i < loopCoords.Count; i++)
+            {
+                GameObject wp = new GameObject($"Loop_WP_{i}");
+                wp.transform.SetParent(transform, false);
+                wp.transform.position = loopCoords[i];
+                loopWaypoints.Add(wp.transform);
+            }
+
+            // 3. Nạp Exit Waypoints từ roadData.exit_path_root
+            List<Vector3> exitCoords = ParseCoordinatesRaw(roadData.exit_path_root);
+            for (int i = 0; i < exitCoords.Count; i++)
+            {
+                GameObject wp = new GameObject($"Exit_WP_{i}");
+                wp.transform.SetParent(transform, false);
+                wp.transform.position = exitCoords[i];
+                exitWaypoints.Add(wp.transform);
+            }
+
+            // 4. Ngã rẽ Exit Junction: điểm trong loop gần Exit 0 nhất
+            if (exitWaypoints.Count > 0 && loopWaypoints.Count > 0)
+            {
+                exitJunctionPoint = FindClosestWaypoint(loopWaypoints, exitWaypoints[0].position);
+            }
+
+            // 5. Điểm nhập làn từ bãi xe: tìm điểm trong loop gần bãi xe (Z nhỏ nhất, thường là đáy cua)
+            if (loopWaypoints.Count > 0)
+            {
+                Transform bestEntry = loopWaypoints[0];
+                float minZ = float.MaxValue;
+                foreach (var wp in loopWaypoints)
+                {
+                    if (wp.position.z < minZ)
+                    {
+                        minZ = wp.position.z;
+                        bestEntry = wp;
+                    }
+                }
+                parkingEntryWaypoint = bestEntry;
+            }
+
+            // 6. Cổng đón khách (Boarding Gate): tìm điểm ngay dưới chân tranh cát (Z quanh -2.5 đến -1.5, X gần 0)
+            Vector3 gateTarget = new Vector3(0f, 0f, -2.5f);
+            if (loopWaypoints.Count > 0)
+            {
+                boardingGatePoint = FindClosestWaypoint(loopWaypoints, gateTarget);
+            }
+
+            if (boardingGatePoint != null)
+            {
+                var detector = boardingGatePoint.GetComponent<BoardingGateDetector>();
+                if (detector == null) detector = boardingGatePoint.gameObject.AddComponent<BoardingGateDetector>();
+                if (prefabData != null && detector.flightActorPrefab == null)
+                {
+                    detector.flightActorPrefab = prefabData.passengerPrefab;
+                }
+            }
+
+            Debug.Log($"<color=green>[LoopTrackSystem]</color> Đã nạp Road #{roadId}: {loopWaypoints.Count} loop waypoints, {exitWaypoints.Count} exit waypoints!");
+        }
+
+        private List<Vector3> ParseCoordinatesRaw(string raw)
+        {
+            var list = new List<Vector3>();
+            if (string.IsNullOrEmpty(raw)) return list;
+
+            string[] points = raw.Split(';');
+            foreach (var p in points)
+            {
+                string clean = p.Trim().Trim('[', ']');
+                if (string.IsNullOrEmpty(clean)) continue;
+
+                string[] parts = clean.Split(',');
+                if (parts.Length >= 2)
+                {
+                    if (float.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float x) &&
+                        float.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float z))
+                    {
+                        list.Add(new Vector3(x, 0f, z));
+                    }
+                }
+            }
+            return list;
+        }
+
+        private Transform FindClosestWaypoint(List<Transform> list, Vector3 target)
+        {
+            Transform closest = null;
+            float minDist = float.MaxValue;
+            foreach (var t in list)
+            {
+                if (t == null) continue;
+                float d = Vector3.Distance(t.position, target);
+                if (d < minDist)
+                {
+                    minDist = d;
+                    closest = t;
+                }
+            }
+            return closest;
+        }
     }
 }
