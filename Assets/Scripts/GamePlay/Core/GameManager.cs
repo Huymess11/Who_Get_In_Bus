@@ -50,19 +50,19 @@ namespace WhoGetInBus.GamePlay
         }
 
         /// <summary>
-        /// Nạp và kích hoạt Level tương ứng chuẩn gốc (1 -> 1001, 2 -> 1002...)
+        /// Nạp và kích hoạt Level tương ứng (1, 2, 3...)
         /// </summary>
         public void LoadAndStartLevel(int levelNumber)
         {
             currentLevelNumber = levelNumber;
-            int targetLevelId = 1000 + levelNumber;
-            Debug.Log($"<color=cyan>[GameManager]</color> Đang nạp Level {levelNumber} (ID: {targetLevelId})...");
+            int targetLevelId = levelNumber;
+            Debug.Log($"<color=cyan>[GameManager]</color> Đang nạp Level {levelNumber}...");
 
             var levelData = WhoGetInBus.Data.LevelConfigLoader.LoadLevel(targetLevelId);
             if (levelData == null)
             {
-                Debug.LogWarning($"[GameManager] Không tìm thấy dữ liệu cho Level {targetLevelId}, chuyển về mặc định 1001!");
-                targetLevelId = 1001;
+                Debug.LogWarning($"[GameManager] Không tìm thấy dữ liệu cho Level {targetLevelId}, chuyển về mặc định Level 1!");
+                targetLevelId = 1;
                 levelData = WhoGetInBus.Data.LevelConfigLoader.LoadLevel(targetLevelId);
             }
 
@@ -74,26 +74,83 @@ namespace WhoGetInBus.GamePlay
             }
 
             // 1. Nạp Bàn Cát UI
-            if (SandBoardManager.Instance != null)
+            var board = SandBoardManager.Instance != null ? SandBoardManager.Instance : FindFirstObjectByType<SandBoardManager>();
+            if (board != null)
             {
-                SandBoardManager.Instance.LoadLevelDirect(targetLevelId, prefabData);
+                board.LoadLevelDirect(targetLevelId, prefabData);
             }
 
             // 2. Nạp Tuyến Đường Đua Loop & Cổng đón khách
             int roadId = levelData != null ? levelData.road : 5;
-            if (LoopTrackSystem.Instance != null)
+            var track = LoopTrackSystem.Instance != null ? LoopTrackSystem.Instance : FindFirstObjectByType<LoopTrackSystem>();
+            if (track != null)
             {
-                LoopTrackSystem.Instance.LoadRoadFromConfig(roadId, prefabData);
+                track.LoadRoadFromConfig(roadId, prefabData);
             }
 
             // 3. Nạp Bãi Xe
-            if (ParkingLotManager.Instance != null)
+            var park = ParkingLotManager.Instance != null ? ParkingLotManager.Instance : FindFirstObjectByType<ParkingLotManager>();
+            if (park != null)
             {
-                ParkingLotManager.Instance.LoadLevelDirect(targetLevelId, prefabData);
+                park.LoadLevelDirect(targetLevelId, prefabData);
             }
 
-            // 4. Bắt đầu tính giờ và kích hoạt chơi
+            // 4. Cập nhật ảnh mặt đường theo Môi trường Level (Top & Down Road)
+            UpdateRoadEnvironmentVisuals(levelData);
+
+            // 5. Bắt đầu tính giờ và kích hoạt chơi
             StartGame();
+        }
+
+        /// <summary>
+        /// Tự động cập nhật ảnh Down Road và Top Road theo loại môi trường (bgStyle) và loại đường (road)
+        /// </summary>
+        private void UpdateRoadEnvironmentVisuals(WhoGetInBus.Data.LevelData levelData)
+        {
+            if (levelData == null) return;
+            var roadEnv = prefabData != null ? prefabData.roadEnvironmentData : null;
+            if (roadEnv == null)
+            {
+#if UNITY_EDITOR
+                roadEnv = UnityEditor.AssetDatabase.LoadAssetAtPath<WhoGetInBus.Data.RoadEnvironmentData>("Assets/Data/RoadEnvironmentData.asset");
+#endif
+            }
+            if (roadEnv == null) return;
+
+            Sprite downSp = roadEnv.GetDownRoad(levelData.bgStyle);
+            Sprite topSp = roadEnv.GetTopRoad(levelData.bgStyle, levelData.road);
+
+            // 1. Gán vào Map 3D SpriteRenderer (dưới GameObject ---Map---)
+            var mapRoot = GameObject.Find("---Map---");
+            if (mapRoot != null)
+            {
+                var bottomTrans = mapRoot.transform.Find("Bottom");
+                if (bottomTrans != null)
+                {
+                    var sr = bottomTrans.GetComponent<SpriteRenderer>();
+                    if (sr != null && downSp != null) sr.sprite = downSp;
+                }
+
+                var topTrans = mapRoot.transform.Find("Top");
+                if (topTrans != null)
+                {
+                    var sr = topTrans.GetComponent<SpriteRenderer>();
+                    if (sr != null && topSp != null) sr.sprite = topSp;
+                }
+            }
+
+            // 2. Gán vào Map Canvass UI Image nếu đang hiển thị qua Canvas
+            var canvasRoot = GameObject.Find("Map Canvass");
+            if (canvasRoot != null)
+            {
+                var bottomImg = canvasRoot.transform.Find("Bottom")?.GetComponent<UnityEngine.UI.Image>();
+                if (bottomImg != null && downSp != null) bottomImg.sprite = downSp;
+
+                var topImg = canvasRoot.transform.Find("Top")?.GetComponent<UnityEngine.UI.Image>();
+                if (topImg != null && topSp != null) topImg.sprite = topSp;
+            }
+
+            Debug.Log($"<color=cyan>[GameManager]</color> Đã áp dụng ảnh mặt đường: Environment #{levelData.bgStyle} (Down Road), Road #{levelData.road} (Top Road)!");
         }
 
         public void StartGame()

@@ -61,13 +61,13 @@ namespace WhoGetInBus.EditorTools
         private int selectedRoadId = 1;
 
         // Tìm kiếm theo Level
-        private int searchLevelInput = 1001;
+        private int searchLevelInput = 1;
         private string searchLevelResult = "";
 
         // Chế độ hiển thị mặt phẳng
         private WindowDisplayMode displayMode = WindowDisplayMode.Canvas_2D_UI;
-        private bool invertZ = true; // Mặc định BẬT: Đảo ngược trục Z/Y (-Y) để khớp chuẩn với Map
-        private bool invertX = false;
+        private bool invertZ = true; // Mặc định BẬT: Đảo ngược trục Z/Y (-Y) để khớp chuẩn với Unity
+        private bool invertX = false; // Mặc định TẮT: +X là bên phải, -X là bên trái trong cả Cocos và Unity (đường thoát bên trái X = -3.93)
         private float heightOffset = 0.05f;
         private Vector3 worldOffset = Vector3.zero;
 
@@ -742,7 +742,7 @@ namespace WhoGetInBus.EditorTools
             {
                 DrawRoadInScene(curRoad, true);
 
-                if (isSimulating || simProgress > 0f)
+                if (!EditorApplication.isPlaying && (isSimulating || simProgress > 0f))
                 {
                     DrawSimulatedCarInScene(curRoad);
                 }

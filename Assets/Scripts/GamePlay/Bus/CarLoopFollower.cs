@@ -1,78 +1,25 @@
 using UnityEngine;
-using TMPro;
 
 namespace WhoGetInBus.GamePlay
 {
-    public class CarLoopFollower : MonoBehaviour
+    /// <summary>
+    /// ĐIỀU KHIỂN XE CHẠY ĐƯỜNG RAY (Kế thừa từ Car Base)
+    /// Chuyên trách:
+    /// - Di chuyển bám theo các điểm Waypoint trên đường ray chữ U
+    /// - Ôm cua nghiêng thân xe (Banking Lean)
+    /// - Tự động giữ khoảng cách chống đâm xe phía trước
+    /// - Rẽ vào làn thoát khi đã đón đủ 100% khách
+    /// </summary>
+    public class CarLoopFollower : Car
     {
-        [Header("Thông Tin Xe")]
-        public GameColorType carColor = GameColorType.Yellow;
-        public int totalSeats = 100;
-        public int currentSeats = 100;
-        public int mechanicType = 0; // 0: Normal, 1: Lock, 2: Ice, 5: Fly, 501: Key
-        public bool isPendingExit = false;
-        public bool isInLoop = false;
-        public bool isExtraCar = false; // Đã là xe 2 tầng Extra Car chưa
-        public bool isMerging = false; // Đang trong quá trình hiệu ứng gộp 3 xe
-
-        [Header("Hiển Thị & Giao Diện")]
-        public TMP_Text seatText;
-        public MeshRenderer bodyRenderer;
-
         [Header("Trạng Thái Di Chuyển")]
         public int currentWaypointIdx = 0;
         public float currentSpeed = 6.0f;
         public float bankingLean = 0f;
 
-        private Vector3 originalScale;
-        private float bounceTimer = 0f;
-
-        private void Awake()
-        {
-            originalScale = transform.localScale;
-            if (seatText == null) seatText = GetComponentInChildren<TMP_Text>();
-            if (bodyRenderer == null)
-            {
-                var bodyChild = transform.Find("Body");
-                if (bodyChild != null) bodyRenderer = bodyChild.GetComponent<MeshRenderer>();
-            }
-        }
-
-        public void InitializeCar(GameColorType color, int seats, int mechanic, BusColorData busColors)
-        {
-            carColor = color;
-            totalSeats = seats;
-            currentSeats = seats;
-            mechanicType = mechanic;
-            isPendingExit = false;
-            isInLoop = false;
-
-            UpdateVisuals(busColors);
-        }
-
-        public void UpdateVisuals(BusColorData busColors)
-        {
-            if (seatText == null) seatText = GetComponentInChildren<TMP_Text>();
-            if (bodyRenderer == null)
-            {
-                var bodyChild = transform.Find("Body");
-                if (bodyChild != null) bodyRenderer = bodyChild.GetComponent<MeshRenderer>();
-                if (bodyRenderer == null) bodyRenderer = GetComponentInChildren<MeshRenderer>();
-            }
-
-            // Cập nhật chữ số chỗ trên nóc xe
-            if (seatText != null)
-            {
-                seatText.text = currentSeats.ToString();
-            }
-
-            // Gắn Material đúng màu từ BusColorData
-            if (busColors != null && busColors.data.ContainsKey(carColor) && bodyRenderer != null)
-            {
-                bodyRenderer.material = busColors.data[carColor];
-            }
-        }
-
+        /// <summary>
+        /// Đưa xe nhập làn vào đường đua tại điểm xuất phát
+        /// </summary>
         public void EnterTrack(int startWaypointIdx = 0)
         {
             isInLoop = true;
@@ -80,29 +27,114 @@ namespace WhoGetInBus.GamePlay
             currentSpeed = LoopTrackSystem.Instance != null ? LoopTrackSystem.Instance.baseSpeed : 6f;
         }
 
+        [Header("Cơ Chế Đón Khách Dọc Đường (Cocos Proximity Boarding)")]
+        [Tooltip("Bán kính hút khách viền Gate khi xe chạy ngang qua (chuẩn 2.4m)")]
+        public float absorbCheckRadius = 2.4f;
+        [Tooltip("Nhịp độ đón khách (chuẩn 0.12 giây/lần)")]
+        public float absorbInterval = 0.12f;
+        public float flightDuration = 0.28f;
+        public float arcPeakHeight = 1.6f;
+
+        private float nextAbsorbCheckTime = 0f;
+
         private void Update()
         {
-            if (!isInLoop || LoopTrackSystem.Instance == null) return;
+            // Cập nhật hiệu ứng rung nhún từ lớp cha Car
+            UpdateBounce();
 
-            // Xử lý hiệu ứng nảy xe khi nhận khách
-            if (bounceTimer > 0f)
+            // Nếu chưa vào làn hoặc đang trong hiệu ứng gộp xe thì không di chuyển
+            if (!isInLoop || isMerging || LoopTrackSystem.Instance == null) return;
+
+            MoveAlongTrack();
+
+            // Cơ chế đón khách chuẩn game gốc Cocos:
+            // Bất cứ khi nào xe chạy dọc theo đường ray tiếp giáp ô Gate cùng màu -> Hút khách vào xe!
+            CheckAndAbsorbPassengersAlongTrack();
+        }
+
+        private void CheckAndAbsorbPassengersAlongTrack()
+        {
+            if (Time.time < nextAbsorbCheckTime) return;
+            if (currentSeats <= 0 || isPendingExit || isMerging) return;
+            if (SandBoardManager.Instance == null) return;
+
+            // HÚT THEO ĐÀN (BATCH ABSORB): Hút 1 lúc 3 - 6 hạt cùng màu gần xe (chuẩn Cocos)
+            int maxCanTake = Mathf.Clamp(currentSeats, 1, 6);
+            var batch = SandBoardManager.Instance.TryAbsorbPassengerBatchNearCar(this, transform.position, absorbCheckRadius, maxCanTake);
+
+            if (batch != null && batch.Count > 0)
             {
-                bounceTimer -= Time.deltaTime;
-                float punch = Mathf.Sin(bounceTimer * Mathf.PI * 8f) * 0.12f;
-                transform.localScale = originalScale + new Vector3(punch, punch * 1.5f, punch);
+                // Nhịp độ giãn cách giữa các đợt hút (chuẩn constant 35: 0.08s ~ 0.12s)
+                nextAbsorbCheckTime = Time.time + Mathf.Max(0.08f, absorbInterval);
+
+                for (int i = 0; i < batch.Count; i++)
+                {
+                    var item = batch[i];
+                    // Độ trễ so le nối đuôi nhau giữa các hạt trong đàn (0.025s / hạt)
+                    float staggerDelay = i * 0.025f;
+                    StartCoroutine(FlyPassengerParabolaRoutine(item.worldPos, item.col, item.row, staggerDelay));
+                }
+            }
+        }
+
+        private System.Collections.IEnumerator FlyPassengerParabolaRoutine(Vector3 startPos, int col, int row, float startDelay)
+        {
+            if (startDelay > 0f)
+            {
+                yield return new WaitForSeconds(startDelay);
+            }
+
+            GameObject actor = null;
+            var prefabData = LoopTrackSystem.Instance != null ? LoopTrackSystem.Instance.prefabData : null;
+            if (prefabData != null && prefabData.passengerPrefab != null)
+            {
+                actor = Instantiate(prefabData.passengerPrefab, startPos, Quaternion.identity);
             }
             else
             {
-                transform.localScale = originalScale;
+                actor = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                actor.transform.position = startPos;
+                actor.transform.localScale = Vector3.one * 0.35f;
+                var colComponent = actor.GetComponent<Collider>();
+                if (colComponent != null) Destroy(colComponent);
             }
 
-            MoveAlongPath();
+            if (actor != null && SandBoardManager.Instance != null)
+            {
+                var sr = actor.GetComponentInChildren<SpriteRenderer>();
+                if (sr != null && SandBoardManager.Instance.passengerColors != null &&
+                    SandBoardManager.Instance.passengerColors.data.TryGetValue(carColor, out Sprite sprite))
+                {
+                    sr.sprite = sprite;
+                }
+                var rend = actor.GetComponentInChildren<Renderer>();
+                if (rend != null)
+                    rend.material.color = SandBoardManager.Instance.GetPaletteColor((int)carColor);
+            }
+
+            float elapsed = 0f;
+            while (elapsed < flightDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / flightDuration);
+                Vector3 carPos = transform.position + Vector3.up * 0.8f;
+                Vector3 pos = Vector3.Lerp(startPos, carPos, t);
+                pos.y += 4f * arcPeakHeight * t * (1f - t);
+                if (actor != null) actor.transform.position = pos;
+                yield return null;
+            }
+
+            if (actor != null) Destroy(actor);
+
+            AbsorbPassenger();
+            SandBoardManager.Instance?.ConsumeBead(col, row);
         }
 
-        private void MoveAlongPath()
+        /// <summary>
+        /// Di chuyển bám theo danh sách Waypoint của LoopTrackSystem
+        /// </summary>
+        private void MoveAlongTrack()
         {
-            if (isMerging) return; // Nếu đang trong quá trình hiệu ứng gộp xe thì không di chuyển theo waypoint
-
             var track = LoopTrackSystem.Instance;
             var waypoints = isPendingExit ? track.exitWaypoints : track.loopWaypoints;
             if (waypoints == null || waypoints.Count == 0) return;
@@ -110,75 +142,76 @@ namespace WhoGetInBus.GamePlay
             Transform targetWp = waypoints[Mathf.Clamp(currentWaypointIdx, 0, waypoints.Count - 1)];
             if (targetWp == null) return;
 
-            Vector3 toTarget = (targetWp.position - transform.position);
-            toTarget.y = 0;
-            float dist = toTarget.magnitude;
+            // 1. Chống đâm xe: Hãm tốc độ nếu xe trước quá gần
+            float effectiveSpeed = IsCarAheadBlocked(track.followGapDistance) ? Mathf.Max(0.5f, currentSpeed * 0.2f) : currentSpeed;
 
-            // 1. Chống đâm xe: Kiểm tra khoảng cách với xe phía trước
-            float effectiveSpeed = currentSpeed;
-            if (IsCarAheadBlocked(track.followGapDistance))
-            {
-                effectiveSpeed = Mathf.Max(0.5f, currentSpeed * 0.2f); // Hãm phanh an toàn
-            }
-
-            // 2. Di chuyển xe về điểm target
+            // 2. Di chuyển tịnh tiến về mốc Waypoint
             transform.position = Vector3.MoveTowards(transform.position, targetWp.position, effectiveSpeed * Time.deltaTime);
 
-            // 3. Xoay thân xe theo tiếp tuyến Look-Ahead và nghiêng thân xe (Banking Lean)
+            // 3. Xoay đầu xe theo tiếp tuyến Look-Ahead và nghiêng thân xe khi ôm cua
             Vector3 tangent = track.GetLookAheadTangent(transform.position, currentWaypointIdx, isPendingExit);
             if (tangent != Vector3.zero)
             {
                 Quaternion targetRot = Quaternion.LookRotation(tangent, Vector3.up);
-
-                // Tính góc cua để tạo hiệu ứng nghiêng thân xe mượt mà
                 float angle = Vector3.SignedAngle(transform.forward, tangent, Vector3.up);
                 float targetRoll = Mathf.Clamp(-angle * 0.35f, -track.maxBankingLean, track.maxBankingLean);
                 bankingLean = Mathf.Lerp(bankingLean, targetRoll, Time.deltaTime * 6f);
 
-                Quaternion rollRot = Quaternion.Euler(0, 0, bankingLean);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot * rollRot, Time.deltaTime * track.rotateSpeed);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot * Quaternion.Euler(0, 0, bankingLean), Time.deltaTime * track.rotateSpeed);
             }
 
-            // 4. Khi chạm mốc Waypoint -> chuyển điểm tiếp theo
-            if (dist < 0.35f)
+            // 4. Khi đến gần Waypoint hiện tại, chuyển sang Waypoint tiếp theo
+            Vector3 diff = targetWp.position - transform.position;
+            diff.y = 0;
+            if (diff.sqrMagnitude < 0.12f) // Tối ưu: dùng sqrMagnitude thay vì Distance (tránh căn bậc 2)
             {
-                // Kiểm tra ngã rẽ: nếu xe đã đầy và đang ở điểm Junction -> rẽ ra Exit!
-                if (!isPendingExit && currentSeats <= 0 && track.exitJunctionPoint != null)
-                {
-                    if (Vector3.Distance(transform.position, track.exitJunctionPoint.position) < 1.5f)
-                    {
-                        isPendingExit = true;
-                        currentWaypointIdx = 0;
-                        return;
-                    }
-                }
-
-                if (isPendingExit)
-                {
-                    if (currentWaypointIdx >= waypoints.Count - 1)
-                    {
-                        // Đã chạy hết đường thoát -> biến mất và báo thành công
-                        OnExitFinished();
-                        return;
-                    }
-                    currentWaypointIdx++;
-                }
-                else
-                {
-                    currentWaypointIdx = (currentWaypointIdx + 1) % waypoints.Count;
-                }
+                AdvanceToNextWaypoint(track, waypoints);
             }
         }
 
+        /// <summary>
+        /// Chuyển mốc Waypoint hoặc rẽ vào làn thoát nếu xe đã đầy khách
+        /// </summary>
+        private void AdvanceToNextWaypoint(LoopTrackSystem track, System.Collections.Generic.List<Transform> waypoints)
+        {
+            // Nếu xe đã hết chỗ và đến gần ngã rẽ Exit -> Rẽ vào làn thoát!
+            if (!isPendingExit && currentSeats <= 0 && track.exitJunctionPoint != null)
+            {
+                if ((transform.position - track.exitJunctionPoint.position).sqrMagnitude < 2.25f) // < 1.5m
+                {
+                    isPendingExit = true;
+                    currentWaypointIdx = 0;
+                    return;
+                }
+            }
+
+            if (isPendingExit)
+            {
+                if (currentWaypointIdx >= waypoints.Count - 1)
+                {
+                    OnExitFinished();
+                    return;
+                }
+                currentWaypointIdx++;
+            }
+            else
+            {
+                currentWaypointIdx = (currentWaypointIdx + 1) % waypoints.Count;
+            }
+        }
+
+        /// <summary>
+        /// Raycast kiểm tra khoảng cách an toàn với xe phía trước
+        /// </summary>
         private bool IsCarAheadBlocked(float gapDist)
         {
             if (isMerging) return false;
 
-            RaycastHit hit;
-            if (Physics.Raycast(transform.position + Vector3.up * 0.5f, transform.forward, out hit, gapDist))
+            if (Physics.Raycast(transform.position + Vector3.up * 0.5f, transform.forward, out RaycastHit hit, gapDist))
             {
-                CarLoopFollower otherCar = hit.collider.GetComponentInParent<CarLoopFollower>();
-                if (otherCar != null && otherCar != this && !otherCar.isMerging)
+                Car otherCar = hit.collider.GetComponentInParent<Car>();
+                // Chỉ kiểm tra các xe khác cũng đang chạy trên đường đua (isInLoop)
+                if (otherCar != null && otherCar != this && !otherCar.isMerging && otherCar.isInLoop)
                 {
                     return true;
                 }
@@ -186,23 +219,9 @@ namespace WhoGetInBus.GamePlay
             return false;
         }
 
-        public void AbsorbPassenger()
-        {
-            if (currentSeats > 0)
-            {
-                currentSeats--;
-                if (seatText != null) seatText.text = currentSeats.ToString();
-                bounceTimer = 0.25f; // Kích hoạt nhún thân xe
-            }
-        }
-
-        public void PlayMergeSuccessEffect()
-        {
-            bounceTimer = 0.5f;
-            transform.localScale = originalScale * 1.4f;
-            Debug.Log($"<color=yellow>⭐ [HỢP THỂ THÀNH CÔNG]</color> Đã gộp 3 xe màu {carColor} thành EXTRA CAR 2 tầng với {currentSeats} chỗ!");
-        }
-
+        /// <summary>
+        /// Xe đã hoàn thành chặng đường và chạy ra khỏi màn hình
+        /// </summary>
         private void OnExitFinished()
         {
             isInLoop = false;

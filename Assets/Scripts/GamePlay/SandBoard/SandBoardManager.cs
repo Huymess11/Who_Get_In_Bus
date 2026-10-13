@@ -35,8 +35,8 @@ namespace WhoGetInBus.GamePlay
         [HideInInspector] public string sandDataString;
 
         [Header("Cấu Hình Màn Chơi (Level & Road)")]
-        [Tooltip("Level ID chuẩn gốc Cocos (1001, 1002, 1003...)")]
-        public int levelId = 1001;
+        [Tooltip("Level ID chuẩn (1, 2, 3...)")]
+        public int levelId = 1;
         [Tooltip("ID Tuyến đường (road trong levelNCXHCfg.json)")]
         public int currentRoadId = 5;
 
@@ -240,7 +240,7 @@ namespace WhoGetInBus.GamePlay
         }
 
         /// <summary>
-        /// Nạp và sinh trực tiếp tranh cát từ Level ID chuẩn gốc (1001, 1002, ...)
+        /// Nạp và sinh trực tiếp tranh cát từ Level ID chuẩn (1, 2, ...)
         /// </summary>
         public void LoadLevelDirect(int targetLevelId, GamePrefabData prefabData = null)
         {
@@ -428,6 +428,171 @@ namespace WhoGetInBus.GamePlay
         /// Tìm hạt cùng màu ở hàng đáy để đón lên xe bus.
         /// Chuyển đổi vị trí hạt từ 2D UI Canvas sang tọa độ 3D World Space chính xác để xe bus đón.
         /// </summary>
+        /// <summary>
+        /// Lấy độ cao địa hình (Terrain Elevation) từ ma trận points của RoadConfigData.
+        /// Chuẩn Cocos: giá trị >= 0 là độ cao, -1 là rãnh khoét (vật cản).
+        /// </summary>
+        public int GetTerrainElevation(int col, int row)
+        {
+            if (col < 0 || col >= columns || row < 0 || row >= rows) return -1;
+            var roadCfg = WhoGetInBus.Data.LevelConfigLoader.GetRoadConfig(currentRoadId);
+            if (roadCfg != null && roadCfg.points != null)
+            {
+                int jsonRow = 39 - row;
+                if (jsonRow >= 0 && jsonRow < 40)
+                {
+                    return roadCfg.points[col, jsonRow];
+                }
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// Kiểm tra xem ô (col, row) có phải là cổng đón khách (Boarding Gate) viền tiếp giáp đường xe chạy không.
+        /// </summary>
+        public bool IsBoardingGate(int col, int row)
+        {
+            if (col < 0 || col >= columns || row < 0 || row >= rows) return false;
+            var roadCfg = WhoGetInBus.Data.LevelConfigLoader.GetRoadConfig(currentRoadId);
+            if (roadCfg != null && roadCfg.gateSet != null && roadCfg.gateSet.Count > 0)
+            {
+                int jsonRow = 39 - row;
+                return roadCfg.IsGate(col, jsonRow);
+            }
+            // Fallback nếu không có gateSet: hàng đáy là cổng
+            return row == 0;
+        }
+
+    [System.Serializable]
+    public struct PassengerAbsorbItem
+    {
+        public int col;
+        public int row;
+        public Vector3 worldPos;
+    }
+
+        /// <summary>
+        /// ĐÓN KHÁCH THEO ĐÀN (Chuẩn Cocos: Hút cả chùm/bầy nhiều hạt cùng lúc, tối đa 24 hạt/frame theo config #68).
+        /// Khi xe chạy qua đoạn có hạt cát cùng màu ở viền Gate:
+        /// Lan truyền BFS tìm các hạt cát cùng màu kết nối xung quanh để hút đồng loạt bay vào xe!
+        /// </summary>
+        public List<PassengerAbsorbItem> TryAbsorbPassengerBatchNearCar(Car car, Vector3 carWorldPos, float checkRadius, int maxBatchCount)
+        {
+            List<PassengerAbsorbItem> batch = new List<PassengerAbsorbItem>();
+            if (car == null || beadColorIndices == null || maxBatchCount <= 0) return batch;
+
+            int targetColorIdx = (int)car.carColor;
+            float bestDistSqr = checkRadius * checkRadius;
+            int startGateCol = -1;
+            int startGateRow = -1;
+
+            var roadCfg = WhoGetInBus.Data.LevelConfigLoader.GetRoadConfig(currentRoadId);
+            if (roadCfg != null && roadCfg.gateSet != null && roadCfg.gateSet.Count > 0)
+            {
+                foreach (var gateCoord in roadCfg.gateSet)
+                {
+                    int c = gateCoord.x;
+                    int r = 39 - gateCoord.y;
+
+                    if (c >= 0 && c < columns && r >= 0 && r < rows)
+                    {
+                        if (beadColorIndices[c, r] == targetColorIdx)
+                        {
+                            Vector3 bead3D = GetPassenger3DWorldPosition(c, r);
+                            float dx = bead3D.x - carWorldPos.x;
+                            float dz = bead3D.z - carWorldPos.z;
+                            float distSqr = dx * dx + dz * dz;
+
+                            if (distSqr <= bestDistSqr)
+                            {
+                                bestDistSqr = distSqr;
+                                startGateCol = c;
+                                startGateRow = r;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback nếu chưa tìm thấy qua gateSet: tìm ở đáy
+            if (startGateCol < 0)
+            {
+                if (TryGetPassengerAtBottom(car.carColor, out _, out _, out int fbCol, out int fbRow))
+                {
+                    startGateCol = fbCol;
+                    startGateRow = fbRow;
+                }
+            }
+
+            if (startGateCol < 0) return batch;
+
+            // Thu thập theo đàn (BFS Cluster Search) các hạt cát cùng màu kết nối
+            Queue<Vector2Int> queue = new Queue<Vector2Int>();
+            HashSet<int> visited = new HashSet<int>();
+
+            queue.Enqueue(new Vector2Int(startGateCol, startGateRow));
+            visited.Add(startGateCol * 1000 + startGateRow);
+
+            int[,] dirs = new int[,] { { 0, 1 }, { 0, -1 }, { 1, 0 }, { -1, 0 }, { 1, 1 }, { -1, 1 } };
+
+            while (queue.Count > 0 && batch.Count < maxBatchCount)
+            {
+                var cur = queue.Dequeue();
+                int c = cur.x;
+                int r = cur.y;
+
+                batch.Add(new PassengerAbsorbItem
+                {
+                    col = c,
+                    row = r,
+                    worldPos = GetPassenger3DWorldPosition(c, r)
+                });
+
+                if (batch.Count >= maxBatchCount) break;
+
+                for (int d = 0; d < 6; d++)
+                {
+                    int nc = c + dirs[d, 0];
+                    int nr = r + dirs[d, 1];
+                    int key = nc * 1000 + nr;
+
+                    if (nc >= 0 && nc < columns && nr >= 0 && nr < rows && !visited.Contains(key))
+                    {
+                        visited.Add(key);
+                        if (beadColorIndices[nc, nr] == targetColorIdx)
+                        {
+                            queue.Enqueue(new Vector2Int(nc, nr));
+                        }
+                    }
+                }
+            }
+
+            return batch;
+        }
+
+        /// <summary>
+        /// ĐÓN KHÁCH ĐƠN LẺ (Fallback tương thích).
+        /// </summary>
+        public bool TryAbsorbPassengerNearCar(Car car, Vector3 carWorldPos, float checkRadius, out Vector3 passengerWorldPos, out int foundCol, out int foundRow)
+        {
+            passengerWorldPos = Vector3.zero;
+            foundCol = -1;
+            foundRow = -1;
+
+            var batch = TryAbsorbPassengerBatchNearCar(car, carWorldPos, checkRadius, 1);
+            if (batch != null && batch.Count > 0)
+            {
+                foundCol = batch[0].col;
+                foundRow = batch[0].row;
+                passengerWorldPos = batch[0].worldPos;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Tìm hạt cùng màu ở hàng đáy để đón lên xe bus (Backward Compatibility Fallback).
+        /// </summary>
         public bool TryGetPassengerAtBottom(GameColorType targetColor, out GameObject beadObj, out Vector3 worldPos, out int foundCol, out int foundRow)
         {
             beadObj = null;
@@ -531,7 +696,7 @@ namespace WhoGetInBus.GamePlay
         }
 
         /// <summary>
-        /// Tiêu thụ 1 hạt cát và kích hoạt hiệu ứng sạt lở (Collapse) rơi xuống mượt mà.
+        /// Tiêu thụ 1 hạt cát và kích hoạt thuật toán sụt lở cát địa hình (SandTerrainCollapse chuẩn Cocos 1:1).
         /// </summary>
         public void ConsumeBead(int c, int r)
         {
@@ -541,7 +706,8 @@ namespace WhoGetInBus.GamePlay
             beadColorIndices[c, r] = -1;
             totalRemainingBeads = Mathf.Max(0, totalRemainingBeads - 1);
 
-            CollapseColumn(c, r);
+            // Kích hoạt thuật toán sụt lở địa hình tự nhiên
+            ApplySandTerrainCollapse(c, r);
             RefreshGraphic();
 
             if (totalRemainingBeads <= 0)
@@ -553,26 +719,119 @@ namespace WhoGetInBus.GamePlay
             }
         }
 
-        private void CollapseColumn(int c, int startR)
+        /// <summary>
+        /// THUẬT TOÁN SỤT LỞ CÁT ĐỊA HÌNH CHUẨN GỐC COCOS 1:1 (SandTerrainCollapse).
+        /// Cát chảy nghiêng/sụt dốc từ các ô lân cận có địa hình cao hơn lấp vào khoảng trống,
+        /// lan truyền theo chuỗi thác đổ tạo dòng chảy cát lún tự nhiên.
+        /// </summary>
+        private void ApplySandTerrainCollapse(int holeCol, int holeRow)
         {
             if (beadColorIndices == null) return;
             if (collapseVisualOffsets == null) collapseVisualOffsets = new Vector2[columns, rows];
             if (collapseTimers == null) collapseTimers = new float[columns, rows];
 
-            for (int r = startR + 1; r < rows; r++)
-            {
-                if (beadColorIndices[c, r] >= 0)
-                {
-                    int targetRow = r - 1;
-                    beadColorIndices[c, targetRow] = beadColorIndices[c, r];
-                    beadColorIndices[c, r] = -1;
+            // Ma trận hướng ưu tiên dòng chảy (chuẩn Cocos: primary và secondary)
+            // Lưu ý: row trong Unity tăng dần từ đáy lên đỉnh, nên row+1 là hàng trên!
+            // Nửa bên trái (col < 20):
+            int[,] leftPrimaryDirs = new int[,] { { 1, -1 }, { 1, 0 }, { 1, 1 } }; // chéo trên trái, thẳng trên, chéo trên phải
+            int[,] leftSecondaryDirs = new int[,] { { 0, -1 }, { -1, -1 }, { -1, 0 }, { -1, 1 }, { 0, 1 } };
 
-                    // Tính offset hình ảnh từ vị trí cũ rơi xuống vị trí mới
-                    Vector2 oldPos = GetBeadUIPosition(c, r);
-                    Vector2 newPos = GetBeadUIPosition(c, targetRow);
-                    collapseVisualOffsets[c, targetRow] = oldPos - newPos;
-                    collapseTimers[c, targetRow] = CollapseDuration;
+            // Nửa bên phải (col >= 20):
+            int[,] rightPrimaryDirs = new int[,] { { 1, 1 }, { 1, 0 }, { 1, -1 } }; // chéo trên phải, thẳng trên, chéo trên trái
+            int[,] rightSecondaryDirs = new int[,] { { 0, 1 }, { -1, 1 }, { -1, 0 }, { -1, -1 }, { 0, -1 } };
+
+            int curCol = holeCol;
+            int curRow = holeRow;
+
+            // Lặp chuỗi sụt lở (cascade chain) cho đến khi không còn hạt nào trượt xuống được nữa
+            for (int step = 0; step < rows; step++)
+            {
+                int curTerrain = GetTerrainElevation(curCol, curRow);
+                bool foundSource = false;
+                int srcCol = -1;
+                int srcRow = -1;
+
+                bool isLeft = curCol < (columns / 2);
+                int[,] primary = isLeft ? leftPrimaryDirs : rightPrimaryDirs;
+                int[,] secondary = isLeft ? leftSecondaryDirs : rightSecondaryDirs;
+
+                // 1. Quét hướng ưu tiên chính (Primary: các ô ở hàng trên) với điều kiện terrain >= curTerrain
+                for (int d = 0; d < 3; d++)
+                {
+                    int nc = curCol + primary[d, 1];
+                    int nr = curRow + primary[d, 0];
+                    if (nc >= 0 && nc < columns && nr >= 0 && nr < rows)
+                    {
+                        if (beadColorIndices[nc, nr] >= 0)
+                        {
+                            int nTerrain = GetTerrainElevation(nc, nr);
+                            if (nTerrain >= 0 && nTerrain >= curTerrain)
+                            {
+                                srcCol = nc;
+                                srcRow = nr;
+                                foundSource = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // 2. Quét hướng ưu tiên phụ (Secondary) với điều kiện terrain > curTerrain
+                if (!foundSource)
+                {
+                    for (int d = 0; d < 5; d++)
+                    {
+                        int nc = curCol + secondary[d, 1];
+                        int nr = curRow + secondary[d, 0];
+                        if (nc >= 0 && nc < columns && nr >= 0 && nr < rows)
+                        {
+                            if (beadColorIndices[nc, nr] >= 0)
+                            {
+                                int nTerrain = GetTerrainElevation(nc, nr);
+                                if (nTerrain >= 0 && nTerrain > curTerrain)
+                                {
+                                    srcCol = nc;
+                                    srcRow = nr;
+                                    foundSource = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3. Fallback: Nếu không tìm thấy theo địa hình, hạt thẳng đứng ở hàng trên (nr = curRow + 1) rơi xuống
+                if (!foundSource)
+                {
+                    int nr = curRow + 1;
+                    if (nr < rows && beadColorIndices[curCol, nr] >= 0)
+                    {
+                        srcCol = curCol;
+                        srcRow = nr;
+                        foundSource = true;
+                    }
+                }
+
+                // Nếu tìm thấy hạt sụt lở: Dời hạt từ (srcCol, srcRow) xuống (curCol, curRow)
+                if (foundSource)
+                {
+                    beadColorIndices[curCol, curRow] = beadColorIndices[srcCol, srcRow];
+                    beadColorIndices[srcCol, srcRow] = -1;
+
+                    // Hiệu ứng animation hạt trượt
+                    Vector2 oldPos = GetBeadUIPosition(srcCol, srcRow);
+                    Vector2 newPos = GetBeadUIPosition(curCol, curRow);
+                    collapseVisualOffsets[curCol, curRow] = oldPos - newPos;
+                    collapseTimers[curCol, curRow] = CollapseDuration;
                     isCollapsing = true;
+
+                    // Ô nguồn trở thành lỗ trống tiếp theo để tiếp tục hút hạt bên trên xuống
+                    curCol = srcCol;
+                    curRow = srcRow;
+                }
+                else
+                {
+                    break; // Đã lấp đầy toàn bộ chuỗi
                 }
             }
         }

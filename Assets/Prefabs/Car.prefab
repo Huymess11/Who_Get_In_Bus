@@ -428,6 +428,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4004570871933236952}
+  - component: {fileID: 2553424905200998609}
   m_Layer: 0
   m_Name: Car
   m_TagString: Untagged
@@ -452,6 +453,32 @@ Transform:
   - {fileID: 6856883657506222512}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2553424905200998609
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808598646949289849}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d5b4c840f4aedb42a23c61cfc5efd95, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WhoGetInBus.GamePlay.CarLoopFollower
+  carColor: 7
+  totalSeats: 100
+  currentSeats: 100
+  mechanicType: 0
+  isInLoop: 0
+  isPendingExit: 0
+  isExtraCar: 0
+  isMerging: 0
+  seatText: {fileID: 2383173680679124459}
+  bodyRenderer: {fileID: 1416194505538388847}
+  busColorData: {fileID: 11400000, guid: c2b25b9d53fc4b144a9a96919207c5a7, type: 2}
+  currentWaypointIdx: 0
+  currentSpeed: 6
+  bankingLean: 0
 --- !u!1 &5309277152398803179
 GameObject:
   m_ObjectHideFlags: 0
@@ -463,6 +490,7 @@ GameObject:
   - component: {fileID: 1537914071277974263}
   - component: {fileID: 2501735725502725254}
   - component: {fileID: 1416194505538388847}
+  - component: {fileID: 493064637835869760}
   m_Layer: 0
   m_Name: Body
   m_TagString: Untagged
@@ -546,6 +574,27 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!65 &493064637835869760
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5309277152398803179}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.7591976, y: 1.1363025, z: 0.7912642}
+  m_Center: {x: -0.00000013411051, y: 0.034050416, z: 0.48103827}
 --- !u!1 &6829722613524840859
 GameObject:
   m_ObjectHideFlags: 0

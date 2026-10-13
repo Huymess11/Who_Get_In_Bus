@@ -29,13 +29,13 @@ namespace WhoGetInBus.EditorTools
 
         #region DỮ LIỆU CẤU HÌNH & MÀN CHƠI
         // Level hiện tại
-        private int currentLevelId = 1001;
+        private int currentLevelId = 1;
         private List<int> allLevelIds = new List<int>();
         private int selectedLevelIdx = 0;
 
         // Tranh Cát (Collect)
         private int currentPictureId = 10006;
-        private string currentCollectName = "甜趣香蕉";
+        private string currentCollectName = "Sand Art 1";
         private int currentRoadId = 5;
         private static readonly int[] AvailableRoadIds = new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 21, 22, 31, 32 };
         private static string[] roadDropdownLabels = null;
@@ -166,7 +166,11 @@ namespace WhoGetInBus.EditorTools
             allLevelIds = LevelConfigLoader.GetAllLevelIds();
             if (allLevelIds == null || allLevelIds.Count == 0)
             {
-                allLevelIds = new List<int> { 1001 };
+                allLevelIds = new List<int> { 1 };
+            }
+            if (!allLevelIds.Contains(currentLevelId) && allLevelIds.Count > 0)
+            {
+                currentLevelId = allLevelIds[0];
             }
             selectedLevelIdx = Mathf.Max(0, allLevelIds.IndexOf(currentLevelId));
         }
@@ -327,11 +331,14 @@ namespace WhoGetInBus.EditorTools
 
             GUILayout.FlexibleSpace();
 
-            // 2. Nút Gen Xe Thông Minh (Core Feature)
+            // 2. Nút Gen Xe Thông Minh (Tùy chọn khi tự làm Level mới)
             GUI.backgroundColor = new Color(0.2f, 0.75f, 0.95f);
-            if (GUILayout.Button("⚡ Tự Động Gen Xe Thông Minh", EditorStyles.toolbarButton, GUILayout.Width(190)))
+            if (GUILayout.Button("⚡ Tự Động Gen Xe (Tùy Chọn)", EditorStyles.toolbarButton, GUILayout.Width(180)))
             {
-                AutoGenerateWinnableFleet();
+                if (EditorUtility.DisplayDialog("Xác nhận tự sinh xe", "Thao tác này sẽ TỰ ĐỘNG TÍNH TOÁN và GHI ĐÈ toàn bộ ma trận xe hiện tại của Level!\n\nBạn có chắc chắn muốn ghi đè danh sách xe gốc từ JSON không?", "Ghi Đè", "Hủy"))
+                {
+                    AutoGenerateWinnableFleet();
+                }
             }
 
             // 3. Nút Lưu
@@ -699,10 +706,13 @@ namespace WhoGetInBus.EditorTools
             if (!allBalanced)
             {
                 EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.HelpBox("Ghế xe và nhu cầu chưa khớp. Nhấn 'Tự Động Gen Xe' để khớp 100%!", MessageType.Warning);
-                if (GUILayout.Button("⚡ Khớp Ngay", GUILayout.Width(100), GUILayout.Height(36)))
+                EditorGUILayout.HelpBox("ℹ️ Đang sử dụng 100% dữ liệu xe gốc từ levelNCXHCfg.json. Độ lệch nhỏ giữa ghế và hạt là do thiết kế gốc Cocos (viền khoét & cơ chế gom hạt). Không cần gen lại xe!", MessageType.Info);
+                if (GUILayout.Button("⚡ Tùy Chọn:\nTự Cân Bằng", GUILayout.Width(110), GUILayout.Height(36)))
                 {
-                    AutoGenerateWinnableFleet();
+                    if (EditorUtility.DisplayDialog("Xác nhận tự cân bằng xe", "Bạn có chắc chắn muốn TỰ ĐỘNG TÍNH TOÁN và GHI ĐÈ toàn bộ ma trận xe hiện tại không?\n\n(Chỉ dùng khi bạn muốn tự thiết kế Level mới, không khuyến khích ghi đè level gốc)", "Ghi Đè", "Hủy"))
+                    {
+                        AutoGenerateWinnableFleet();
+                    }
                 }
                 EditorGUILayout.EndHorizontal();
             }
@@ -712,7 +722,7 @@ namespace WhoGetInBus.EditorTools
         #region CỘT PHẢI: BÃI ĐỖ XE (PARKING LOT) & THUẬT TOÁN
         private void DrawParkingLotColumn()
         {
-            EditorGUILayout.LabelField("🚗 BÃI ĐỖ XE (PARKING LOT MATRIX)", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField($"🚗 BÃI ĐỖ XE (100% DỮ LIỆU GỐC levelNCXHCfg.json - Level {currentLevelId})", EditorStyles.boldLabel);
 
             // Kích thước lưới xe
             EditorGUILayout.BeginHorizontal();

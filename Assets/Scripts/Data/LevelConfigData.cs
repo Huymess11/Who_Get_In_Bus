@@ -14,8 +14,8 @@ namespace WhoGetInBus.Data
     [System.Serializable]
     public class LevelData
     {
-        public int id = 1001;
-        public int next = 1002;
+        public int id = 1;
+        public int next = 2;
         public int collect = 1;
         public int exchangeRatio = 10;
         public int iniCapacity = 4;
@@ -27,6 +27,13 @@ namespace WhoGetInBus.Data
         public int bus_prompt = 1;
         public int diff_prompt = 0;
         public int bus_random = 0;
+
+        // Thuộc tính Enum tiện ích ánh xạ từ dữ liệu Level
+        public RoadTopType RoadType => (RoadTopType)road;
+        public LevelEnvironmentType EnvironmentType => (LevelEnvironmentType)bgStyle;
+        public RoadBottomStyle BottomStyle => (RoadBottomStyle)bgStyle;
+        public GameUIStyle UIStyle => (GameUIStyle)uiStyle;
+        public GameWeatherType WeatherType => (GameWeatherType)weather;
 
         /// <summary>
         /// Ma trận 2D xe buýt: bus[hàng][cột]
@@ -57,8 +64,8 @@ namespace WhoGetInBus.Data
         public int id = 1;
         public int picture = 10006;
         public int unlockType = 1;
-        public string name = "甜趣香蕉";
-        public int unlockLevel = 1001;
+        public string name = "Sand Art 1";
+        public int unlockLevel = 1;
     }
 
     /// <summary>
@@ -80,13 +87,25 @@ namespace WhoGetInBus.Data
         /// col = 0..39 (trục X: trái sang phải)
         /// row = 0..39 (trục Y: đỉnh trên cùng 0 xuống đáy 39)
         /// Giá trị -1 là vùng khoét rãnh đường đón xe (không sinh hạt cát)
+        /// Giá trị >= 0 là độ cao địa hình (Terrain Elevation) phục vụ sụt lở cát!
         /// </summary>
         public int[,] points = new int[40, 40];
+
+        /// <summary>
+        /// Danh sách các ô viền tiếp giáp đường xe chạy làm cổng đón khách (Boarding Gate Set)
+        /// </summary>
+        public HashSet<Vector2Int> gateSet = new HashSet<Vector2Int>();
 
         public bool IsCutout(int col, int row)
         {
             if (col < 0 || col >= 40 || row < 0 || row >= 40) return false;
             return points != null && points[col, row] == -1;
+        }
+
+        public bool IsGate(int col, int jsonRow)
+        {
+            if (gateSet == null || gateSet.Count == 0) return false;
+            return gateSet.Contains(new Vector2Int(col, jsonRow));
         }
     }
 
@@ -133,7 +152,7 @@ namespace WhoGetInBus.Data
         private static Dictionary<int, RoadConfigData> cachedRoads = null;
 
         /// <summary>
-        /// Lấy toàn bộ danh sách Level ID có trong file levelNCXHCfg.json (1001, 1002, ...)
+        /// Lấy toàn bộ danh sách Level ID có trong file levelNCXHCfg.json (1, 2, ...)
         /// </summary>
         public static List<int> GetAllLevelIds(bool forceReload = false)
         {
@@ -149,7 +168,7 @@ namespace WhoGetInBus.Data
             try
             {
                 string json = File.ReadAllText(LevelCfgPath);
-                var matches = Regex.Matches(json, @"""(\d{4,5})""\s*:\s*\{");
+                var matches = Regex.Matches(json, @"""(\d+)""\s*:\s*\{");
                 foreach (Match m in matches)
                 {
                     if (int.TryParse(m.Groups[1].Value, out int id))
@@ -322,6 +341,28 @@ namespace WhoGetInBus.Data
                     }
                 }
 
+                int gateIdx = block.IndexOf("\"gate\"");
+                if (gateIdx >= 0)
+                {
+                    int arrStart = block.IndexOf('[', gateIdx);
+                    if (arrStart >= 0)
+                    {
+                        int arrEnd = FindClosingBracket(block, arrStart, '[', ']');
+                        if (arrEnd >= 0)
+                        {
+                            string gateBlock = block.Substring(arrStart + 1, arrEnd - arrStart - 1);
+                            var gateMatches = Regex.Matches(gateBlock, @"\[\s*(\d+)\s*,\s*(\d+)\s*\]");
+                            foreach (Match gm in gateMatches)
+                            {
+                                if (gm.Success && int.TryParse(gm.Groups[1].Value, out int gc) && int.TryParse(gm.Groups[2].Value, out int gr))
+                                {
+                                    road.gateSet.Add(new Vector2Int(gc, gr));
+                                }
+                            }
+                        }
+                    }
+                }
+
                 cachedRoads[roadId] = road;
                 return road;
             }
@@ -346,16 +387,14 @@ namespace WhoGetInBus.Data
             try
             {
                 string json = File.ReadAllText(LevelCfgPath);
-                string key = $"\"{levelId}\"";
-                int keyIdx = json.IndexOf(key);
-                if (keyIdx < 0)
+                Match keyMatch = Regex.Match(json, $@"""{levelId}""\s*:\s*\{{");
+                if (!keyMatch.Success)
                 {
                     Debug.LogWarning($"[LevelConfigLoader] Không tìm thấy Level {levelId} trong levelNCXHCfg.json");
                     return null;
                 }
 
-                int openBrace = json.IndexOf('{', keyIdx);
-                if (openBrace < 0) return null;
+                int openBrace = keyMatch.Index + keyMatch.Length - 1;
                 int closeBrace = FindClosingBracket(json, openBrace, '{', '}');
                 if (closeBrace < 0) return null;
 
@@ -486,14 +525,15 @@ namespace WhoGetInBus.Data
             {
                 string json = File.ReadAllText(LevelCfgPath);
                 string key = $"\"{level.id}\"";
-                int keyIdx = json.IndexOf(key);
+                Match keyMatch = Regex.Match(json, $@"""{level.id}""\s*:\s*\{{");
+                int keyIdx = keyMatch.Success ? keyMatch.Index : -1;
 
                 string levelJsonChunk = SerializeLevelBlock(level);
 
                 if (keyIdx >= 0)
                 {
                     // Cập nhật level đã tồn tại
-                    int openBrace = json.IndexOf('{', keyIdx);
+                    int openBrace = keyMatch.Index + keyMatch.Length - 1;
                     int closeBrace = FindClosingBracket(json, openBrace, '{', '}');
 
                     string before = json.Substring(0, keyIdx);

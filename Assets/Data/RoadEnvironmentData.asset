@@ -1,0 +1,1743 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceff59d1de7f04c40be535486bbfac62, type: 3}
+  m_Name: RoadEnvironmentData
+  m_EditorClassIdentifier: Assembly-CSharp::WhoGetInBus.Data.RoadEnvironmentData
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects:
+    - {fileID: 21300000, guid: e32b80ea85c2f8e428078b6520378e5e, type: 3}
+    - {fileID: 21300000, guid: c69d5a8bf705fb442a9a0929210b9f51, type: 3}
+    - {fileID: 21300000, guid: c3c1cf0ce43f60041b22315796b1a985, type: 3}
+    - {fileID: 21300000, guid: e496afc7f95e4d14486275ae7753d257, type: 3}
+    - {fileID: 21300000, guid: 5cd041b0d7e07b540a8d421ada570398, type: 3}
+    - {fileID: 21300000, guid: b7d7d297f9aa5d84e999ea9ad889187e, type: 3}
+    - {fileID: 21300000, guid: 283bdd0b14cb0d046823ed7ce79fdc17, type: 3}
+    - {fileID: 21300000, guid: e49ad2e1ffe63714196012e8252974b9, type: 3}
+    - {fileID: 21300000, guid: 52393bd93c5b343429d35d06735ffe4f, type: 3}
+    - {fileID: 21300000, guid: b7a865d60a605164894d41a79a15c7a3, type: 3}
+    - {fileID: 21300000, guid: e27764c8c1609c64aba951be2f3abe66, type: 3}
+    - {fileID: 21300000, guid: b192503a6f62d4b4ea20226570b31ff4, type: 3}
+    - {fileID: 21300000, guid: 48d3caf3003f8324aae348c3e7fe69fd, type: 3}
+    - {fileID: 21300000, guid: 880ba0a092ec361418ae17b2f8c8cb9a, type: 3}
+    - {fileID: 21300000, guid: 2161d31cb96437142819a3b8bec3a075, type: 3}
+    - {fileID: 21300000, guid: 3ad7c6ae24bea1e46afa6ee833e39fb4, type: 3}
+    - {fileID: 21300000, guid: 9941aa53a7f36f744a4222f86b7d85dc, type: 3}
+    - {fileID: 21300000, guid: 62bb10d4dbeb540419c769012d614467, type: 3}
+    - {fileID: 21300000, guid: e15a03ae702a1374585a902a007fea2f, type: 3}
+    - {fileID: 21300000, guid: 027dc582f8f60de4daaaa6ab4a005307, type: 3}
+    - {fileID: 21300000, guid: 9ad918746983d754cbf28c5c4af3e5eb, type: 3}
+    - {fileID: 21300000, guid: 226d3d23e0dd8fe47bf71dab045d6f3b, type: 3}
+    - {fileID: 21300000, guid: 330f8e84062610d4f83dafed0e1b4130, type: 3}
+    - {fileID: 21300000, guid: 910f95ca00de5ef4b987a0cf34bb41cc, type: 3}
+    - {fileID: 21300000, guid: a2cd8e730a434da498aaf502e2559a23, type: 3}
+    - {fileID: 21300000, guid: 5106990f636196f4ea512de0f4ed0214, type: 3}
+    - {fileID: 21300000, guid: fae57007f4e40114e9548cd299ab7641, type: 3}
+    - {fileID: 21300000, guid: 1c0be76dc49afc74f8ea956857bd597d, type: 3}
+    - {fileID: 21300000, guid: 2215da0ece8465c41bb0220056bd0cd7, type: 3}
+    - {fileID: 21300000, guid: 83d79231aead6714dbeb8097ee619731, type: 3}
+    - {fileID: 21300000, guid: 26761fb4ee1b58342b21efe90397ddf8, type: 3}
+    - {fileID: 21300000, guid: 5d791a905253edc429f430e6d3e87b0e, type: 3}
+    - {fileID: 21300000, guid: 608f65016dcae7f48876ab8436d39ab2, type: 3}
+    - {fileID: 21300000, guid: 9b489673cb0c3144485d6b2e0fdc3296, type: 3}
+    - {fileID: 21300000, guid: 19d1f9d2a720f5344982b0dfe97a2277, type: 3}
+    - {fileID: 21300000, guid: 83f32605079d69e4c98ef4495d693ede, type: 3}
+    - {fileID: 21300000, guid: 10e7b4a95e2b4ae4bbc68f595f9f0ac5, type: 3}
+    - {fileID: 21300000, guid: 20c6a1b4de0d7784aa37b8db5a81dc08, type: 3}
+    - {fileID: 21300000, guid: 590e53da07522f145a8adbe3e8dbd355, type: 3}
+    - {fileID: 21300000, guid: 9f241b156ee32fe419bab0745ca66c16, type: 3}
+    - {fileID: 21300000, guid: c0e0e7f1887d18c46b7c28b2e9cf4a8e, type: 3}
+    - {fileID: 21300000, guid: e382072c0ae9bfa428b25cb0e92fbf10, type: 3}
+    - {fileID: 21300000, guid: f72e4a1b3a8e201498d13718c087ea53, type: 3}
+    - {fileID: 21300000, guid: afc85391c94af5e47b2b6a5d4bcb32b7, type: 3}
+    - {fileID: 21300000, guid: 395cc8892e94196469c1a2dd51849852, type: 3}
+    - {fileID: 21300000, guid: f14b79a5cf39b6b43a660b6b700f0bf3, type: 3}
+    - {fileID: 21300000, guid: 59b3e77b0d49aec48b69f78bf587718c, type: 3}
+    - {fileID: 21300000, guid: 4bf7d0b8402849d43b7dca3844a4fd6c, type: 3}
+    - {fileID: 21300000, guid: 77ddf3b5a58907b4f94286c3ea2f60c8, type: 3}
+    - {fileID: 21300000, guid: ef8b542bdf958a24ea49f9563e9f626c, type: 3}
+    - {fileID: 21300000, guid: 246a6e5f52dc7d3498952ae86b11a208, type: 3}
+    - {fileID: 21300000, guid: 2dbae838ca93ec249bb73d9f23d97514, type: 3}
+    - {fileID: 21300000, guid: f657511201d9e84459cfa56f13abcd23, type: 3}
+    - {fileID: 21300000, guid: f762c105a6f755d4eaaf31334a2d6f83, type: 3}
+    - {fileID: 21300000, guid: 0de692a4b9b97fb4fb7c2cec252158c8, type: 3}
+    - {fileID: 21300000, guid: 0e5655a4acbcb6347837fd3d0fbe02ca, type: 3}
+    - {fileID: 21300000, guid: 360b57302cf768f4cb8f2ff4a2ab9421, type: 3}
+    - {fileID: 21300000, guid: c39366dafde65914ebd177f3e822ee62, type: 3}
+    - {fileID: 21300000, guid: a243dc97510e36447bbc76f55a2c1bee, type: 3}
+    - {fileID: 21300000, guid: a1e869462c65d354399cb5b859a33e42, type: 3}
+    - {fileID: 21300000, guid: 904687eeb5c464e49b1797f83de21306, type: 3}
+    - {fileID: 21300000, guid: 2dc829dc5ef9b034895eeaeff7830424, type: 3}
+    - {fileID: 21300000, guid: 5eab3db49bd037c42a131a018cca8f1f, type: 3}
+    - {fileID: 21300000, guid: 75a7f31ab5d16274e85bb6914d37a155, type: 3}
+    - {fileID: 21300000, guid: fc547a9e2c8a89b44b457c4532033e57, type: 3}
+    - {fileID: 21300000, guid: 7d9a813285e1e13488b0dd5638c4087e, type: 3}
+    - {fileID: 21300000, guid: 0d389fc5f6da1474e926d755885870ae, type: 3}
+    - {fileID: 21300000, guid: e3f7942642e91fb4a9eccdc7375b9173, type: 3}
+    - {fileID: 21300000, guid: 37870e2bc1c1c7248923a66206c94bf3, type: 3}
+    - {fileID: 21300000, guid: 71fea7736dd4c6940b8794d3085d6fdc, type: 3}
+    - {fileID: 21300000, guid: 84534a3a382ebca43b44129e7ef8a086, type: 3}
+    - {fileID: 21300000, guid: e8ff908da788aa54faedac3a64eb0a34, type: 3}
+    - {fileID: 21300000, guid: ed174d8cfe4c2db4db77bc6831096fad, type: 3}
+    - {fileID: 21300000, guid: bea81edb6004d574a9b8a91cadad5c05, type: 3}
+    - {fileID: 21300000, guid: ef02d66f4a2bcc94a8e52600317bdab6, type: 3}
+    - {fileID: 21300000, guid: b7a871a8556fbb34188fd89408bfdbe2, type: 3}
+    - {fileID: 21300000, guid: 363e9d11fd774ad4487a37b0502b9bfa, type: 3}
+    - {fileID: 21300000, guid: 3b745dad42d1d164bb957a59592027b5, type: 3}
+    - {fileID: 21300000, guid: e9f64c2d380c87a4cb33ce106c97151e, type: 3}
+    - {fileID: 21300000, guid: 08ed884e96976be40bad3030269ad540, type: 3}
+    - {fileID: 21300000, guid: fb12b4e68052bb7468fd5573474f5a34, type: 3}
+    - {fileID: 21300000, guid: dddd84f41315abc40ad9de3f9d66f1a8, type: 3}
+    - {fileID: 21300000, guid: 2b24fd3a55e9dca4facb77f36fc4c294, type: 3}
+    - {fileID: 21300000, guid: a2dfd13517041c14cb3af582436c2c7b, type: 3}
+    - {fileID: 21300000, guid: 9cd940c106bb02142b0d19a1bdf91155, type: 3}
+    - {fileID: 21300000, guid: 4eb3a4c690908f04dbdd40c62d76c615, type: 3}
+    - {fileID: 21300000, guid: 2c158bb132a08ac499f127e023efa500, type: 3}
+    - {fileID: 21300000, guid: 71e0807ca1b73fd4fbabfaf3f2ce2e8f, type: 3}
+    - {fileID: 21300000, guid: 5f338057a0d38b3498dcf4b61ca6c225, type: 3}
+    - {fileID: 21300000, guid: 52bfce40132f44247b2dce4d1b5c39b0, type: 3}
+    - {fileID: 21300000, guid: 40c58269a81ebd04287bf09ba1f6a80e, type: 3}
+    - {fileID: 21300000, guid: 4f614fa884eb9a5489e0051ba8287f2f, type: 3}
+    - {fileID: 21300000, guid: 0475c6e3f4446e14db5bc3af165cefbd, type: 3}
+    - {fileID: 21300000, guid: 22698372503aaf54aa8118ac9644f43f, type: 3}
+    - {fileID: 21300000, guid: 86da95d702a7c984aa786962c20a2301, type: 3}
+    - {fileID: 21300000, guid: ca8006190b40cbb4fb5a22b81b248dde, type: 3}
+    - {fileID: 21300000, guid: 256568b51e8554e4fb130726c875b306, type: 3}
+    - {fileID: 21300000, guid: f73c797d154751b44b33eea2609f3ad3, type: 3}
+    - {fileID: 21300000, guid: 62db53cc81ba6064b8fb417ac8af906e, type: 3}
+    - {fileID: 21300000, guid: af9b8fddc29d3ad418623742c31fb91a, type: 3}
+    - {fileID: 21300000, guid: c3002aa6406067148a2843d0e88793c0, type: 3}
+    - {fileID: 21300000, guid: d9cdf900c4739534baf145405df1afd7, type: 3}
+    - {fileID: 21300000, guid: 7e327642283c4624d87a45cb83d4ee73, type: 3}
+    - {fileID: 21300000, guid: b6a035cabf024194b841a4178ca64e5d, type: 3}
+    - {fileID: 21300000, guid: e34d7ea935141364e8f503b9f377d53b, type: 3}
+    - {fileID: 21300000, guid: bd67bdcb478a17a46acfab32f91c7ae0, type: 3}
+    - {fileID: 21300000, guid: 676e52bf053af7640913845382dd4ec5, type: 3}
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes:
+    - Name: environments
+      Entry: 7
+      Data: 0|System.Collections.Generic.Dictionary`2[[LevelEnvironmentType, Assembly-CSharp],[WhoGetInBus.Data.EnvironmentRoadSet,
+        Assembly-CSharp]], mscorlib
+    - Name: comparer
+      Entry: 7
+      Data: 1|System.Collections.Generic.EnumEqualityComparer`1[[LevelEnvironmentType,
+        Assembly-CSharp]], mscorlib
+    - Name: 
+      Entry: 12
+      Data: 0
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 12
+      Data: 5
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 1
+    - Name: $v
+      Entry: 7
+      Data: 2|WhoGetInBus.Data.EnvironmentRoadSet, Assembly-CSharp
+    - Name: downRoad
+      Entry: 10
+      Data: 0
+    - Name: environmentName
+      Entry: 1
+      Data: "FARM (\u0110\u1ED3ng c\u1ECF / N\xF4ng tr\u1EA1i)"
+    - Name: floorColor
+      Entry: 7
+      Data: UnityEngine.Color, UnityEngine.CoreModule
+    - Name: 
+      Entry: 4
+      Data: 0.48
+    - Name: 
+      Entry: 4
+      Data: 0.76
+    - Name: 
+      Entry: 4
+      Data: 0.35
+    - Name: 
+      Entry: 4
+      Data: 1
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: topRoads
+      Entry: 7
+      Data: 3|System.Collections.Generic.Dictionary`2[[System.Int32, mscorlib],[UnityEngine.Sprite,
+        UnityEngine.CoreModule]], mscorlib
+    - Name: comparer
+      Entry: 7
+      Data: 4|System.Collections.Generic.GenericEqualityComparer`1[[System.Int32,
+        mscorlib]], mscorlib
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 12
+      Data: 14
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 1
+    - Name: $v
+      Entry: 10
+      Data: 1
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 12
+    - Name: $v
+      Entry: 10
+      Data: 2
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 13
+    - Name: $v
+      Entry: 10
+      Data: 3
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 21
+    - Name: $v
+      Entry: 10
+      Data: 4
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 2
+    - Name: $v
+      Entry: 10
+      Data: 5
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 31
+    - Name: $v
+      Entry: 10
+      Data: 6
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 32
+    - Name: $v
+      Entry: 10
+      Data: 7
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 3
+    - Name: $v
+      Entry: 10
+      Data: 8
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 4
+    - Name: $v
+      Entry: 10
+      Data: 9
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 5
+    - Name: $v
+      Entry: 10
+      Data: 10
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 6
+    - Name: $v
+      Entry: 10
+      Data: 11
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 7
+    - Name: $v
+      Entry: 10
+      Data: 12
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 8
+    - Name: $v
+      Entry: 10
+      Data: 13
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 9
+    - Name: $v
+      Entry: 10
+      Data: 14
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: extraOverlays
+      Entry: 7
+      Data: 5|System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[UnityEngine.Sprite,
+        UnityEngine.CoreModule]], mscorlib
+    - Name: comparer
+      Entry: 7
+      Data: 6|System.Collections.Generic.GenericEqualityComparer`1[[System.String,
+        mscorlib]], mscorlib
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 12
+      Data: 6
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop12_1_03
+    - Name: $v
+      Entry: 10
+      Data: 15
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_1
+    - Name: $v
+      Entry: 10
+      Data: 16
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_2_03
+    - Name: $v
+      Entry: 10
+      Data: 17
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_3_03
+    - Name: $v
+      Entry: 10
+      Data: 18
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_4_03
+    - Name: $v
+      Entry: 10
+      Data: 19
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_5_04
+    - Name: $v
+      Entry: 10
+      Data: 20
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 2
+    - Name: $v
+      Entry: 7
+      Data: 7|WhoGetInBus.Data.EnvironmentRoadSet, Assembly-CSharp
+    - Name: downRoad
+      Entry: 10
+      Data: 21
+    - Name: environmentName
+      Entry: 1
+      Data: "CITY (\u0110\xF4 th\u1ECB / Nh\xE0 ga)"
+    - Name: floorColor
+      Entry: 7
+      Data: UnityEngine.Color, UnityEngine.CoreModule
+    - Name: 
+      Entry: 4
+      Data: 0.55
+    - Name: 
+      Entry: 4
+      Data: 0.58
+    - Name: 
+      Entry: 4
+      Data: 0.65
+    - Name: 
+      Entry: 4
+      Data: 1
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: topRoads
+      Entry: 7
+      Data: 8|System.Collections.Generic.Dictionary`2[[System.Int32, mscorlib],[UnityEngine.Sprite,
+        UnityEngine.CoreModule]], mscorlib
+    - Name: comparer
+      Entry: 9
+      Data: 4
+    - Name: 
+      Entry: 12
+      Data: 14
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 12
+    - Name: $v
+      Entry: 10
+      Data: 22
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 13
+    - Name: $v
+      Entry: 10
+      Data: 23
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 1
+    - Name: $v
+      Entry: 10
+      Data: 24
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 2
+    - Name: $v
+      Entry: 10
+      Data: 25
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 21
+    - Name: $v
+      Entry: 10
+      Data: 26
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 31
+    - Name: $v
+      Entry: 10
+      Data: 27
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 32
+    - Name: $v
+      Entry: 10
+      Data: 28
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 3
+    - Name: $v
+      Entry: 10
+      Data: 29
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 4
+    - Name: $v
+      Entry: 10
+      Data: 30
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 5
+    - Name: $v
+      Entry: 10
+      Data: 31
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 6
+    - Name: $v
+      Entry: 10
+      Data: 32
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 7
+    - Name: $v
+      Entry: 10
+      Data: 33
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 8
+    - Name: $v
+      Entry: 10
+      Data: 34
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 9
+    - Name: $v
+      Entry: 10
+      Data: 35
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: extraOverlays
+      Entry: 7
+      Data: 9|System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[UnityEngine.Sprite,
+        UnityEngine.CoreModule]], mscorlib
+    - Name: comparer
+      Entry: 9
+      Data: 6
+    - Name: 
+      Entry: 12
+      Data: 6
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop12_1
+    - Name: $v
+      Entry: 10
+      Data: 36
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_1_05
+    - Name: $v
+      Entry: 10
+      Data: 37
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_2
+    - Name: $v
+      Entry: 10
+      Data: 38
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_3_02
+    - Name: $v
+      Entry: 10
+      Data: 39
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_4_05
+    - Name: $v
+      Entry: 10
+      Data: 40
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_5_02
+    - Name: $v
+      Entry: 10
+      Data: 41
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 3
+    - Name: $v
+      Entry: 7
+      Data: 10|WhoGetInBus.Data.EnvironmentRoadSet, Assembly-CSharp
+    - Name: downRoad
+      Entry: 10
+      Data: 42
+    - Name: environmentName
+      Entry: 1
+      Data: "SNOW (B\u0103ng tuy\u1EBFt)"
+    - Name: floorColor
+      Entry: 7
+      Data: UnityEngine.Color, UnityEngine.CoreModule
+    - Name: 
+      Entry: 4
+      Data: 0.75
+    - Name: 
+      Entry: 4
+      Data: 0.88
+    - Name: 
+      Entry: 4
+      Data: 0.98
+    - Name: 
+      Entry: 4
+      Data: 1
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: topRoads
+      Entry: 7
+      Data: 11|System.Collections.Generic.Dictionary`2[[System.Int32, mscorlib],[UnityEngine.Sprite,
+        UnityEngine.CoreModule]], mscorlib
+    - Name: comparer
+      Entry: 9
+      Data: 4
+    - Name: 
+      Entry: 12
+      Data: 14
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 12
+    - Name: $v
+      Entry: 10
+      Data: 43
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 13
+    - Name: $v
+      Entry: 10
+      Data: 44
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 1
+    - Name: $v
+      Entry: 10
+      Data: 45
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 21
+    - Name: $v
+      Entry: 10
+      Data: 46
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 2
+    - Name: $v
+      Entry: 10
+      Data: 47
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 31
+    - Name: $v
+      Entry: 10
+      Data: 48
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 32
+    - Name: $v
+      Entry: 10
+      Data: 49
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 3
+    - Name: $v
+      Entry: 10
+      Data: 50
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 4
+    - Name: $v
+      Entry: 10
+      Data: 51
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 5
+    - Name: $v
+      Entry: 10
+      Data: 52
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 6
+    - Name: $v
+      Entry: 10
+      Data: 53
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 7
+    - Name: $v
+      Entry: 10
+      Data: 54
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 8
+    - Name: $v
+      Entry: 10
+      Data: 55
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 9
+    - Name: $v
+      Entry: 10
+      Data: 56
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: extraOverlays
+      Entry: 7
+      Data: 12|System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[UnityEngine.Sprite,
+        UnityEngine.CoreModule]], mscorlib
+    - Name: comparer
+      Entry: 9
+      Data: 6
+    - Name: 
+      Entry: 12
+      Data: 6
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop12_1_04
+    - Name: $v
+      Entry: 10
+      Data: 57
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_1_04
+    - Name: $v
+      Entry: 10
+      Data: 58
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_2_05
+    - Name: $v
+      Entry: 10
+      Data: 59
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_3_05
+    - Name: $v
+      Entry: 10
+      Data: 60
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_4_04
+    - Name: $v
+      Entry: 10
+      Data: 61
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_5_05
+    - Name: $v
+      Entry: 10
+      Data: 62
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 4
+    - Name: $v
+      Entry: 7
+      Data: 13|WhoGetInBus.Data.EnvironmentRoadSet, Assembly-CSharp
+    - Name: downRoad
+      Entry: 10
+      Data: 63
+    - Name: environmentName
+      Entry: 1
+      Data: "Sea (Bi\u1EC3n / \u0110\u1EA1i d\u01B0\u01A1ng)"
+    - Name: floorColor
+      Entry: 7
+      Data: UnityEngine.Color, UnityEngine.CoreModule
+    - Name: 
+      Entry: 4
+      Data: 0.28
+    - Name: 
+      Entry: 4
+      Data: 0.68
+    - Name: 
+      Entry: 4
+      Data: 0.88
+    - Name: 
+      Entry: 4
+      Data: 1
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: topRoads
+      Entry: 7
+      Data: 14|System.Collections.Generic.Dictionary`2[[System.Int32, mscorlib],[UnityEngine.Sprite,
+        UnityEngine.CoreModule]], mscorlib
+    - Name: comparer
+      Entry: 9
+      Data: 4
+    - Name: 
+      Entry: 12
+      Data: 14
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 12
+    - Name: $v
+      Entry: 10
+      Data: 64
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 13
+    - Name: $v
+      Entry: 10
+      Data: 65
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 1
+    - Name: $v
+      Entry: 10
+      Data: 66
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 21
+    - Name: $v
+      Entry: 10
+      Data: 67
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 2
+    - Name: $v
+      Entry: 10
+      Data: 68
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 3
+    - Name: $v
+      Entry: 10
+      Data: 69
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 31
+    - Name: $v
+      Entry: 10
+      Data: 70
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 32
+    - Name: $v
+      Entry: 10
+      Data: 71
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 4
+    - Name: $v
+      Entry: 10
+      Data: 72
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 5
+    - Name: $v
+      Entry: 10
+      Data: 73
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 6
+    - Name: $v
+      Entry: 10
+      Data: 74
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 7
+    - Name: $v
+      Entry: 10
+      Data: 75
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 8
+    - Name: $v
+      Entry: 10
+      Data: 76
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 9
+    - Name: $v
+      Entry: 10
+      Data: 77
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: extraOverlays
+      Entry: 7
+      Data: 15|System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[UnityEngine.Sprite,
+        UnityEngine.CoreModule]], mscorlib
+    - Name: comparer
+      Entry: 9
+      Data: 6
+    - Name: 
+      Entry: 12
+      Data: 6
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop12_1_05
+    - Name: $v
+      Entry: 10
+      Data: 78
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_1_02
+    - Name: $v
+      Entry: 10
+      Data: 79
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_2_02
+    - Name: $v
+      Entry: 10
+      Data: 80
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_3
+    - Name: $v
+      Entry: 10
+      Data: 81
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_4
+    - Name: $v
+      Entry: 10
+      Data: 82
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_5
+    - Name: $v
+      Entry: 10
+      Data: 83
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 5
+    - Name: $v
+      Entry: 7
+      Data: 16|WhoGetInBus.Data.EnvironmentRoadSet, Assembly-CSharp
+    - Name: downRoad
+      Entry: 10
+      Data: 84
+    - Name: environmentName
+      Entry: 1
+      Data: "DESERT (Sa m\u1EA1c)"
+    - Name: floorColor
+      Entry: 7
+      Data: UnityEngine.Color, UnityEngine.CoreModule
+    - Name: 
+      Entry: 4
+      Data: 0.92
+    - Name: 
+      Entry: 4
+      Data: 0.74
+    - Name: 
+      Entry: 4
+      Data: 0.45
+    - Name: 
+      Entry: 4
+      Data: 1
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: topRoads
+      Entry: 7
+      Data: 17|System.Collections.Generic.Dictionary`2[[System.Int32, mscorlib],[UnityEngine.Sprite,
+        UnityEngine.CoreModule]], mscorlib
+    - Name: comparer
+      Entry: 9
+      Data: 4
+    - Name: 
+      Entry: 12
+      Data: 15
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 11
+    - Name: $v
+      Entry: 10
+      Data: 85
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 12
+    - Name: $v
+      Entry: 10
+      Data: 86
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 13
+    - Name: $v
+      Entry: 10
+      Data: 87
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 1
+    - Name: $v
+      Entry: 10
+      Data: 88
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 21
+    - Name: $v
+      Entry: 10
+      Data: 89
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 2
+    - Name: $v
+      Entry: 10
+      Data: 90
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 31
+    - Name: $v
+      Entry: 10
+      Data: 91
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 32
+    - Name: $v
+      Entry: 10
+      Data: 92
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 3
+    - Name: $v
+      Entry: 10
+      Data: 93
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 4
+    - Name: $v
+      Entry: 10
+      Data: 94
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 5
+    - Name: $v
+      Entry: 10
+      Data: 95
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 6
+    - Name: $v
+      Entry: 10
+      Data: 96
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 7
+    - Name: $v
+      Entry: 10
+      Data: 97
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 8
+    - Name: $v
+      Entry: 10
+      Data: 98
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 3
+      Data: 9
+    - Name: $v
+      Entry: 10
+      Data: 99
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: extraOverlays
+      Entry: 7
+      Data: 18|System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[UnityEngine.Sprite,
+        UnityEngine.CoreModule]], mscorlib
+    - Name: comparer
+      Entry: 9
+      Data: 6
+    - Name: 
+      Entry: 12
+      Data: 7
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop11_1
+    - Name: $v
+      Entry: 10
+      Data: 100
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop12_1_02
+    - Name: $v
+      Entry: 10
+      Data: 101
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_1_03
+    - Name: $v
+      Entry: 10
+      Data: 102
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_2_04
+    - Name: $v
+      Entry: 10
+      Data: 103
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_3_04
+    - Name: $v
+      Entry: 10
+      Data: 104
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_4_02
+    - Name: $v
+      Entry: 10
+      Data: 105
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: roadTop21_5_03
+    - Name: $v
+      Entry: 10
+      Data: 106
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 

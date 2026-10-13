@@ -23,6 +23,7 @@ namespace WhoGetInBus.GamePlay
 
         [Header("Điểm Xe Từ Bãi Đỗ Nhập Làn (Spawn Entry)")]
         public Transform parkingEntryWaypoint;
+        public int parkingEntryWaypointIdx = 0;
 
         [Header("Thông Số Chuyển Động Chuẩn")]
         public float baseSpeed = 6.0f;
@@ -36,6 +37,10 @@ namespace WhoGetInBus.GamePlay
         public GameObject extraCarPrefab;
         public BusColorData busColors;
         public GamePrefabData prefabData;
+
+        [Header("Chuẩn Toạ Độ Cocos -> Unity 1:1")]
+        [Tooltip("Chuẩn toạ độ Cocos sang Unity: X giữ nguyên, Z đổi dấu (-z). Đường ra Exit ở bên trái (X = -3.93).")]
+        public bool autoCoordinateConvert = true;
 
         // Danh sách xe đang hoạt động trên đường
         public List<CarLoopFollower> activeCarsOnTrack = new List<CarLoopFollower>();
@@ -131,7 +136,7 @@ namespace WhoGetInBus.GamePlay
             Vector3 spawnPos = leadCar.transform.position;
             Quaternion spawnRot = leadCar.transform.rotation;
             float speed = leadCar.currentSpeed;
-            int mech = leadCar.mechanicType;
+            CarMechanicType mech = leadCar.mechanicType;
 
             // Hủy 2 xe phụ
             if (tailCar1 != null)
@@ -232,12 +237,7 @@ namespace WhoGetInBus.GamePlay
                 }
             }
 
-            // Vẽ Cổng đón khách (Boarding Gate) màu vàng (Yellow)
-            if (boardingGatePoint != null)
-            {
-                Gizmos.color = Color.yellow;
-                Gizmos.DrawWireCube(boardingGatePoint.position, new Vector3(2.5f, 1.5f, 1.5f));
-            }
+            // Cổng đón khách (Boarding Gate) chuẩn Cocos trải dài toàn bộ viền gate, không vẽ hộp vàng cố định nữa
 
             // Vẽ Ngã rẽ & Đường thoát (Exit) màu xanh lá (Green)
             if (exitWaypoints != null && exitWaypoints.Count > 0)
@@ -320,41 +320,95 @@ namespace WhoGetInBus.GamePlay
                 exitJunctionPoint = FindClosestWaypoint(loopWaypoints, exitWaypoints[0].position);
             }
 
-            // 5. Điểm nhập làn từ bãi xe: tìm điểm trong loop gần bãi xe (Z nhỏ nhất, thường là đáy cua)
+            // 5. Điểm nhập làn từ bãi xe: tìm điểm ở đáy cua thuộc làn đi lên (+Z) hướng ra đón khách
             if (loopWaypoints.Count > 0)
             {
-                Transform bestEntry = loopWaypoints[0];
                 float minZ = float.MaxValue;
-                foreach (var wp in loopWaypoints)
+                int bottomIdx = 0;
+                for (int i = 0; i < loopWaypoints.Count; i++)
                 {
-                    if (wp.position.z < minZ)
+                    if (loopWaypoints[i].position.z < minZ)
                     {
-                        minZ = wp.position.z;
-                        bestEntry = wp;
+                        minZ = loopWaypoints[i].position.z;
+                        bottomIdx = i;
                     }
                 }
-                parkingEntryWaypoint = bestEntry;
-            }
 
-            // 6. Cổng đón khách (Boarding Gate): tìm điểm ngay dưới chân tranh cát (Z quanh -2.5 đến -1.5, X gần 0)
-            Vector3 gateTarget = new Vector3(0f, 0f, -2.5f);
-            if (loopWaypoints.Count > 0)
-            {
-                boardingGatePoint = FindClosestWaypoint(loopWaypoints, gateTarget);
-            }
-
-            if (boardingGatePoint != null)
-            {
-                var detector = boardingGatePoint.GetComponent<BoardingGateDetector>();
-                if (detector == null) detector = boardingGatePoint.gameObject.AddComponent<BoardingGateDetector>();
-                if (prefabData != null && detector.flightActorPrefab == null)
+                // Tìm điểm tại đáy cua (Z gần minZ) có hướng chuyển động đi lên (+Z)
+                int bestIdx = bottomIdx;
+                for (int step = 0; step < loopWaypoints.Count; step++)
                 {
-                    detector.flightActorPrefab = prefabData.passengerPrefab;
+                    int curr = (bottomIdx + step) % loopWaypoints.Count;
+                    int next = (curr + 1) % loopWaypoints.Count;
+                    Vector3 dir = loopWaypoints[next].position - loopWaypoints[curr].position;
+                    if (loopWaypoints[curr].position.z <= minZ + 1.2f && dir.z > 0.05f)
+                    {
+                        bestIdx = curr;
+                        break;
+                    }
+                }
+
+                parkingEntryWaypointIdx = bestIdx;
+                parkingEntryWaypoint = loopWaypoints[bestIdx];
+            }
+
+            // 6. VÙNG ĐÓN KHÁCH (Boarding Zone) - Chuẩn game gốc Cocos:
+            // Gắn BoardingGateDetector vào TẤT CẢ waypoints trong đoạn cua U-turn tiếp giáp tranh cát.
+            // Ngưỡng Z > boardingZoneMinZ (Unity space): với Road 5 đó là WP[8~11] có Z ≈ +3.51 → +4.33
+            // Dùng 2.0f làm ngưỡng để bắt được cả những road khác có cua nhỏ hơn.
+            float boardingZoneMinZ = 2.0f;
+            bool foundAnyBoardingWP = false;
+
+            for (int i = 0; i < loopWaypoints.Count; i++)
+            {
+                if (loopWaypoints[i] == null) continue;
+                if (loopWaypoints[i].position.z >= boardingZoneMinZ)
+                {
+                    // Waypoint này nằm trong vùng cua U-turn trên (tiếp giáp tranh cát)
+                    var detector = loopWaypoints[i].GetComponent<BoardingGateDetector>();
+                    if (detector == null) detector = loopWaypoints[i].gameObject.AddComponent<BoardingGateDetector>();
+                    if (prefabData != null && detector.flightActorPrefab == null)
+                    {
+                        detector.flightActorPrefab = prefabData.passengerPrefab;
+                    }
+
+                    // Gán boardingGatePoint là điểm sâu nhất (Z lớn nhất) để CarLoopFollower có thể reference
+                    if (!foundAnyBoardingWP || loopWaypoints[i].position.z > boardingGatePoint.position.z)
+                    {
+                        boardingGatePoint = loopWaypoints[i];
+                    }
+                    foundAnyBoardingWP = true;
                 }
             }
 
-            Debug.Log($"<color=green>[LoopTrackSystem]</color> Đã nạp Road #{roadId}: {loopWaypoints.Count} loop waypoints, {exitWaypoints.Count} exit waypoints!");
+            // Fallback: nếu road nào đó không có waypoint nào đủ cao, dùng cách cũ tìm điểm gần (0,0,3.5)
+            if (!foundAnyBoardingWP && loopWaypoints.Count > 0)
+            {
+                Vector3 gateTarget = new Vector3(0f, 0f, 3.5f);
+                boardingGatePoint = FindClosestWaypoint(loopWaypoints, gateTarget);
+                if (boardingGatePoint != null)
+                {
+                    var detector = boardingGatePoint.GetComponent<BoardingGateDetector>();
+                    if (detector == null) detector = boardingGatePoint.gameObject.AddComponent<BoardingGateDetector>();
+                    if (prefabData != null && detector.flightActorPrefab == null)
+                        detector.flightActorPrefab = prefabData.passengerPrefab;
+                }
+            }
+
+            int boardingCount = 0;
+            foreach (var wp in loopWaypoints)
+                if (wp != null && wp.GetComponent<BoardingGateDetector>() != null) boardingCount++;
+
+            Debug.Log($"<color=green>[LoopTrackSystem]</color> Đã nạp Road #{roadId}: {loopWaypoints.Count} loop WPs, {exitWaypoints.Count} exit WPs. <color=yellow>VÙNG ĐÓN KHÁCH: {boardingCount} waypoints</color> (Z > {boardingZoneMinZ}m, chuẩn game gốc Cocos!)");
         }
+
+#if UNITY_EDITOR
+        [ContextMenu("Nạp Lại Road 5 (Chuẩn Cocos 1:1)")]
+        public void ReloadRoad5InEditor()
+        {
+            LoadRoadFromConfig(5);
+        }
+#endif
 
         private List<Vector3> ParseCoordinatesRaw(string raw)
         {
@@ -373,7 +427,13 @@ namespace WhoGetInBus.GamePlay
                     if (float.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float x) &&
                         float.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float z))
                     {
-                        list.Add(new Vector3(x, 0f, z));
+                        // Chuẩn chuyển đổi hệ toạ độ từ Cocos Creator (Right-Handed, Y-Up) sang Unity (Left-Handed, Y-Up):
+                        // - Trục X: GIỮ NGUYÊN x (+X bên Phải, -X bên Trái trong cả Cocos và Unity).
+                        //   Đường thoát (Exit) nằm ở bên TRÁI (x = -3.93) khớp chuẩn 100% với Sprite đường và barrier thanh chắn bên trái!
+                        // - Trục Z: ĐỔI DẤU -z (Cocos +Z hướng ra ngoài màn hình/xuống bãi xe,
+                        //   trong khi Camera Unity nghiêng 58° thì -Z là đáy màn hình, +Z là đỉnh màn hình về phía tranh cát).
+                        Vector3 pt = new Vector3(x, 0f, -z);
+                        list.Add(pt);
                     }
                 }
             }

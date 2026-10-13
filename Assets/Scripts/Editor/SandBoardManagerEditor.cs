@@ -61,7 +61,7 @@ namespace WhoGetInBus.Editor
 
             if (GUILayout.Button("◀", GUILayout.Width(30), GUILayout.Height(22)))
             {
-                mgr.levelId = Mathf.Max(1001, mgr.levelId - 1);
+                mgr.levelId = Mathf.Max(1, mgr.levelId - 1);
                 mgr.RebuildBoardInEditor();
                 EditorUtility.SetDirty(mgr);
                 SceneView.RepaintAll();
@@ -78,7 +78,7 @@ namespace WhoGetInBus.Editor
 
             if (GUILayout.Button("▶", GUILayout.Width(30), GUILayout.Height(22)))
             {
-                mgr.levelId = Mathf.Min(1060, mgr.levelId + 1);
+                mgr.levelId = Mathf.Min(501, mgr.levelId + 1);
                 mgr.RebuildBoardInEditor();
                 EditorUtility.SetDirty(mgr);
                 SceneView.RepaintAll();

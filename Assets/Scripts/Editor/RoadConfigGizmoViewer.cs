@@ -51,9 +51,9 @@ namespace WhoGetInBus.GamePlay
         [Header("--- THIẾT LẬP MẶT PHẲNG & CHẾ ĐỘ 2D/3D ---")]
         [Tooltip("Chọn chế độ hiển thị: Canvas_2D_UI (chuẩn Map Canvass), XY_2D_World, hoặc XZ_3D_Ground")]
         public DisplayPlane planeMode = DisplayPlane.Canvas_2D_UI;
-        [Tooltip("Đảo ngược trục Z/Y: Mặc định BẬT vì file 2D gốc có Y dương hướng xuống (top-down), trong Unity trục +Y/+Z hướng lên trên màn hình.")]
+        [Tooltip("Đảo ngược trục Z/Y: Mặc định BẬT vì trong Cocos +Z hướng ra ngoài màn hình (xuống bãi xe), trong Unity Camera nghiêng 58° thì -Z là đáy màn hình, +Z là đỉnh màn hình.")]
         public bool invertZ = true;
-        [Tooltip("Đảo ngược trục X: Lật gương trái/phải nếu cần")]
+        [Tooltip("Đảo ngược trục X: Mặc định TẮT vì cả Cocos và Unity đều có +X bên Phải, -X bên Trái. Đường ra Exit ở bên Trái (X = -3.93) khớp chuẩn với barrier bên trái.")]
         public bool invertX = false;
         [Tooltip("Cao độ nâng lên để không bị chìm/z-fighting")]
         public float heightOffset = 0.05f;
@@ -386,7 +386,7 @@ namespace WhoGetInBus.GamePlay
             {
                 DrawRoadGizmos(road, true);
 
-                if (enableSimulation)
+                if (!Application.isPlaying && enableSimulation)
                 {
                     DrawSimulatedCar(road);
                 }

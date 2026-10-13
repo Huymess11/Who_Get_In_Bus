@@ -83,10 +83,16 @@ public class WorldSpaceLayout : MonoBehaviour
     {
         UpdateSpacingForColumns(columnCount);
 
+        int pointIdx = 0;
         int childCount = transform.childCount;
         for (int i = 0; i < childCount; i++)
         {
-            transform.GetChild(i).gameObject.SetActive(i < columnCount);
+            Transform child = transform.GetChild(i);
+            if (child.name.StartsWith("bus point", System.StringComparison.OrdinalIgnoreCase))
+            {
+                child.gameObject.SetActive(pointIdx < columnCount);
+                pointIdx++;
+            }
         }
 
         ForceRefresh();
@@ -174,8 +180,12 @@ public class WorldSpaceLayout : MonoBehaviour
         var result = new List<Transform>();
         foreach (Transform child in transform)
         {
-            if (child.gameObject.activeInHierarchy)
+            if (child.gameObject.activeSelf)
             {
+                if (child.name.Equals("Cars_Holder", System.StringComparison.OrdinalIgnoreCase) || child.GetComponent<WhoGetInBus.GamePlay.Car>() != null)
+                {
+                    continue;
+                }
                 result.Add(child);
             }
         }

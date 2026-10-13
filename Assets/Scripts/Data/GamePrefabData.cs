@@ -22,9 +22,10 @@ public class GamePrefabData : SerializedScriptableObject
     [Tooltip("Material màu hạt cát hành khách")]
     public Material beadMaterial;
 
-    [Header("🎨 DỮ LIỆU BẢNG MÀU CHUẨN (COLOR DATA)")]
+    [Header("🎨 DỮ LIỆU BẢNG MÀU CHUẨN & MẶT ĐƯỜNG (COLOR & ROAD DATA)")]
     public BusColorData busColors;
     public PassengerColorData passengerColors;
+    public WhoGetInBus.Data.RoadEnvironmentData roadEnvironmentData;
 
     [Header("⚙️ CẤU HÌNH PHÂN LOẠI XE")]
     [Tooltip("Ngưỡng số ghế để chuyển sang dùng Extra Car (Xe buýt 2 tầng)")]
@@ -52,10 +53,11 @@ public class GamePrefabData : SerializedScriptableObject
         beadMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Material/Mat_PassengerBead.mat");
         busColors = AssetDatabase.LoadAssetAtPath<BusColorData>("Assets/Data/BusColorData.asset");
         passengerColors = AssetDatabase.LoadAssetAtPath<PassengerColorData>("Assets/Data/PassengerColorData.asset");
+        roadEnvironmentData = AssetDatabase.LoadAssetAtPath<WhoGetInBus.Data.RoadEnvironmentData>("Assets/Data/RoadEnvironmentData.asset");
 
         EditorUtility.SetDirty(this);
         AssetDatabase.SaveAssets();
-        Debug.Log("<color=green>[GamePrefabData]</color> Đã tự động gắn đầy đủ Car, Extra Car, Passenger và Color Data!");
+        Debug.Log("<color=green>[GamePrefabData]</color> Đã tự động gắn đầy đủ Car, Extra Car, Passenger, Color Data và Road Environment Data!");
     }
 #endif
 }
