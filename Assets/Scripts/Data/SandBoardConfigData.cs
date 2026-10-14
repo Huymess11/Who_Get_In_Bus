@@ -13,8 +13,8 @@ namespace WhoGetInBus.Data
     public class SandBoardConfigData : ScriptableObject
     {
         [Header("Vị Trí Bảng Cát Trên Canvas UI (Board Position)")]
-        [Tooltip("Toạ độ AnchoredPosition (X, Y) của GameObject SandBoard_Manager trên Canvas")]
-        public Vector2 boardPosition = new Vector2(0f, -3.5f);
+        [Tooltip("Toạ độ AnchoredPosition (X, Y) của GameObject SandBoard_Manager trên Canvas (khớp chân vòm U-turn Top road ở y = -150)")]
+        public Vector2 boardPosition = new Vector2(0f, -150f);
 
         [Header("Thông Số Kích Thước & Tỉ Lệ Hạt Cát")]
         [Tooltip("Kích thước quad hạt cát (chuẩn Cocos: 34 x 44 pixel theo tỷ lệ ảnh 48x62, tạo độ lấp lên 20px)")]
@@ -66,7 +66,7 @@ namespace WhoGetInBus.Data
         [ContextMenu("⚡ Đặt Về Chuẩn Cocos 1:1")]
         public void ResetToCocosDefault()
         {
-            boardPosition = new Vector2(0f, -3.5f);
+            boardPosition = new Vector2(0f, -150f);
             beadSize = new Vector2(34f, 44f);
             beadScale = 1.0f;
             beadSpacingX = 24.32f;

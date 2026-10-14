@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 715896277f61b1c4caec827d96e8e6e2, type: 3}
   m_Name: SandBoardConfigData
   m_EditorClassIdentifier: WhoGetInBus.Data:SandBoardConfigData
-  boardPosition: {x: 0, y: -3.5}
+  boardPosition: {x: 0, y: 16}
   beadSize: {x: 34, y: 44}
   beadScale: 1
   beadSpacingX: 27

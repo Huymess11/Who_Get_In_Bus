@@ -147,9 +147,15 @@ MonoBehaviour:
   seatText: {fileID: 1976083648976475720}
   bodyRenderer: {fileID: 1647847485087029779}
   busColorData: {fileID: 11400000, guid: c2b25b9d53fc4b144a9a96919207c5a7, type: 2}
+  currentTrackDistance: 0
   currentWaypointIdx: 0
   currentSpeed: 6
   bankingLean: 0
+  isExiting: 0
+  absorbCheckRadius: 2.4
+  absorbInterval: 0.12
+  flightDuration: 0.28
+  arcPeakHeight: 1.6
 --- !u!1 &2346143048093962098
 GameObject:
   m_ObjectHideFlags: 0
@@ -573,13 +579,13 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8453770509291060427}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1049163954009955538}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}

@@ -39,14 +39,8 @@ namespace WhoGetInBus.GamePlay
         [Header("Prefab Hiệu Ứng Khách Bay")]
         public GameObject flightActorPrefab;
 
-        // Bộ đếm thời gian dùng chung cho TOÀN BỘ boarding zone (static)
-        // Để tránh nhiều điểm cùng hút 1 lúc gây spam hiệu ứng
-        private static float s_nextAbsorbTime = 0f;
-
         private void Awake()
         {
-            // Ghi đè Instance bằng điểm cuối cùng được init
-            // (không cần singleton chặt vì tất cả cùng dùng static timer)
             Instance = this;
         }
 
@@ -87,14 +81,20 @@ namespace WhoGetInBus.GamePlay
             if (actor != null && SandBoardManager.Instance != null)
             {
                 var sr = actor.GetComponentInChildren<SpriteRenderer>();
-                if (sr != null && SandBoardManager.Instance.passengerColors != null &&
-                    SandBoardManager.Instance.passengerColors.data.TryGetValue(car.carColor, out Sprite sprite))
+                if (sr != null)
                 {
-                    sr.sprite = sprite;
+                    if (SandBoardManager.Instance.passengerColors != null &&
+                        SandBoardManager.Instance.passengerColors.data.TryGetValue(car.carColor, out Sprite sprite))
+                    {
+                        sr.sprite = sprite;
+                    }
                 }
-                var rend = actor.GetComponentInChildren<Renderer>();
-                if (rend != null)
-                    rend.material.color = SandBoardManager.Instance.GetPaletteColor((int)car.carColor);
+                else
+                {
+                    var meshRend = actor.GetComponentInChildren<MeshRenderer>();
+                    if (meshRend != null)
+                        meshRend.material.color = SandBoardManager.Instance.GetPaletteColor((int)car.carColor);
+                }
             }
 
             float elapsed = 0f;

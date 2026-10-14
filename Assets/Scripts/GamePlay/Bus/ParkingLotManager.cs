@@ -314,51 +314,33 @@ namespace WhoGetInBus.GamePlay
 
             car.StopBlockedBumpAnimation();
 
+            var track = LoopTrackSystem.Instance;
+            var plan = track != null ? track.CreateDeployPlan(car.transform.position) : default;
+            Vector3 entryPos = plan.mergeWorldPos;
+            float entryDist = plan.mergeDistance;
+            Quaternion targetRot = plan.targetRotation;
+
             Vector3 startPos = car.transform.position;
-            int entryWpIdx = LoopTrackSystem.Instance != null ? LoopTrackSystem.Instance.parkingEntryWaypointIdx : 0;
-            Transform entryWp = LoopTrackSystem.Instance != null && LoopTrackSystem.Instance.parkingEntryWaypoint != null
-                ? LoopTrackSystem.Instance.parkingEntryWaypoint
-                : null;
-
-            Vector3 entryPos = entryWp != null
-                ? entryWp.position
-                : (transform.position + Vector3.forward * 4f);
-
-            int trackCount = LoopTrackSystem.Instance != null && LoopTrackSystem.Instance.loopWaypoints != null
-                ? LoopTrackSystem.Instance.loopWaypoints.Count
-                : 0;
-            int nextWpIdx = trackCount > 0 ? (entryWpIdx + 1) % trackCount : 0;
-            Vector3 nextWpPos = trackCount > 0 && LoopTrackSystem.Instance.loopWaypoints[nextWpIdx] != null
-                ? LoopTrackSystem.Instance.loopWaypoints[nextWpIdx].position
-                : (entryPos + Vector3.forward);
-
-            Vector3 trackTangent = nextWpPos - entryPos;
-            trackTangent.y = 0;
-            if (trackTangent.sqrMagnitude < 0.001f) trackTangent = Vector3.forward;
-            Quaternion targetRot = Quaternion.LookRotation(trackTangent.normalized, Vector3.up);
 
             // QUỸ ĐẠO XUẤT BẾN CHUẨN GỐC COCOS (Cubic Bezier Deploy Path):
             // 1. P0: Vị trí xuất phát trong bãi đỗ xe
             Vector3 p0 = startPos;
 
-            // 2. P1: Xe chạy THẲNG TIẾN LÊN PHÍA TRƯỚC (hướng +Z) một đoạn để ra khỏi làn bãi đỗ!
-            float straightForwardDist = Mathf.Clamp((entryPos.z - startPos.z) * 0.45f, 1.2f, 2.2f);
-            Vector3 p1 = startPos + Vector3.forward * straightForwardDist;
+            // 2. P1: Xe chạy THẲNG TIẾN LÊN PHÍA TRƯỚC (hướng +Z) để ra khỏi làn bãi đỗ!
+            float forwardOffset = Mathf.Clamp((entryPos.z - startPos.z) * 0.5f, 0.35f, 1.2f);
+            Vector3 p1 = startPos + Vector3.forward * forwardOffset;
 
-            // 3. P2: Điểm uốn cong tiếp cận dần vào hướng tiếp tuyến của đường đua
-            Vector3 p2 = new Vector3(
-                Mathf.Lerp(startPos.x, entryPos.x, 0.75f),
-                startPos.y,
-                Mathf.Lerp(p1.z, entryPos.z, 0.65f)
-            );
+            // 3. P2: Điểm uốn cong tiếp cận dần vào hướng tiếp tuyến của đường đua (ôm cua mượt mà)
+            Vector3 p2 = entryPos - plan.entryTangent.normalized * 0.45f;
+            p2.y = startPos.y;
 
             // 4. P3: Điểm nhập làn trên đường đua
             Vector3 p3 = entryPos;
 
             float elapsed = 0f;
             float totalDist = Vector3.Distance(startPos, entryPos);
-            float duration = Mathf.Clamp(totalDist / 6.5f, 0.65f, 0.85f);
-            const float arcPeakHeight = 0.15f; // Độ nảy ga nhẹ khi xuất bến chuẩn Cocos
+            float duration = Mathf.Clamp(totalDist / 5.5f, 0.35f, 0.65f);
+            const float arcPeakHeight = 0.08f; // Độ nhún ga nhẹ khi xuất bến chuẩn Cocos
 
             Quaternion initialRot = car.transform.rotation;
 
@@ -390,8 +372,9 @@ namespace WhoGetInBus.GamePlay
                 if (tangent.sqrMagnitude > 0.001f)
                 {
                     Quaternion curveRot = Quaternion.LookRotation(tangent.normalized, Vector3.up);
-                    // Hòa trộn góc quay: ở đầu t=0 giữ thẳng, càng về cuối càng bám sát góc targetRot
-                    car.transform.rotation = Quaternion.Slerp(initialRot, curveRot, Mathf.Clamp01(t * 1.35f));
+                    // Hòa trộn góc quay: ở đầu t < 0.2 giữ thẳng, càng về cuối càng bám sát góc targetRot
+                    float rotBlend = Mathf.Clamp01((t - 0.2f) / 0.8f);
+                    car.transform.rotation = Quaternion.Slerp(initialRot, curveRot, rotBlend);
                 }
 
                 yield return null;
@@ -401,11 +384,11 @@ namespace WhoGetInBus.GamePlay
             {
                 car.transform.position = entryPos;
                 car.transform.rotation = targetRot;
-                car.EnterTrack(nextWpIdx);
+                car.EnterTrack(entryDist);
 
-                if (LoopTrackSystem.Instance != null)
+                if (track != null)
                 {
-                    LoopTrackSystem.Instance.RegisterCarOnTrack(car);
+                    track.RegisterCarOnTrack(car);
                 }
             }
 

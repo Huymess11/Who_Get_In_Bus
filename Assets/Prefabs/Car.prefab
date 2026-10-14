@@ -307,13 +307,13 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2981805847216641359}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6856883657506222512}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
@@ -476,9 +476,15 @@ MonoBehaviour:
   seatText: {fileID: 2383173680679124459}
   bodyRenderer: {fileID: 1416194505538388847}
   busColorData: {fileID: 11400000, guid: c2b25b9d53fc4b144a9a96919207c5a7, type: 2}
+  currentTrackDistance: 0
   currentWaypointIdx: 0
   currentSpeed: 6
   bankingLean: 0
+  isExiting: 0
+  absorbCheckRadius: 2.4
+  absorbInterval: 0.12
+  flightDuration: 0.28
+  arcPeakHeight: 1.6
 --- !u!1 &5309277152398803179
 GameObject:
   m_ObjectHideFlags: 0
@@ -550,7 +556,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: c7d69e7e6544441f8cc9c3bb21700e76, type: 2}
+  - {fileID: 2100000, guid: c245445134934589b872b8c97b906843, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

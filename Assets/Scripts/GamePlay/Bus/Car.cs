@@ -48,7 +48,7 @@ namespace WhoGetInBus.GamePlay
         /// Tự động tìm kiếm các component hiển thị nếu chưa gán
         /// </summary>
         protected Transform canvasTransform;
-        protected static readonly Quaternion CameraBillboardRot = Quaternion.Euler(-53f, 180f, 0f);
+        protected static readonly Quaternion CameraBillboardRot = Quaternion.Euler(58f, 0f, 0f);
 
         public void CacheComponents()
         {
@@ -84,10 +84,21 @@ namespace WhoGetInBus.GamePlay
 
         protected virtual void LateUpdate()
         {
-            // Giữ Canvas / text số ghế trên nóc luôn quay đúng hướng chuẩn về Camera, không bị xoay ngược khi xe quay đầu
-            if (canvasTransform != null)
+            // Giữ text số ghế trên nóc luôn quay đúng hướng chuẩn về Camera, thẳng thắn, không bị xoay ngược hay lộn đầu
+            Quaternion targetBillboardRot = CameraBillboardRot;
+            var cam = Camera.main;
+            if (cam != null)
             {
-                canvasTransform.rotation = CameraBillboardRot;
+                targetBillboardRot = cam.transform.rotation;
+            }
+
+            if (seatText != null)
+            {
+                seatText.transform.rotation = targetBillboardRot;
+            }
+            else if (canvasTransform != null)
+            {
+                canvasTransform.rotation = targetBillboardRot;
             }
         }
 

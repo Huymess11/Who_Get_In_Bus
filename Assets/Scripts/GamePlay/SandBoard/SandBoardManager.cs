@@ -472,23 +472,106 @@ namespace WhoGetInBus.GamePlay
     }
 
         /// <summary>
-        /// ĐÓN KHÁCH THEO ĐÀN (Chuẩn Cocos: Hút cả chùm/bầy nhiều hạt cùng lúc, tối đa 24 hạt/frame theo config #68).
-        /// Khi xe chạy qua đoạn có hạt cát cùng màu ở viền Gate:
-        /// Lan truyền BFS tìm các hạt cát cùng màu kết nối xung quanh để hút đồng loạt bay vào xe!
+        /// <summary>
+        /// TRÍCH XUẤT ĐÀN HÀNH KHÁCH (Batch Extract chuẩn Cocos 1:1)
+        /// Khi xe chạy qua khu vực đón khách tiếp giáp viền Gate hoặc chân tranh cát:
+        /// - Tìm hạt cát cùng màu gần xe nhất tại các ô Gate / mép chân tranh cát
+        /// - Lan truyền BFS gom cụm đàn hạt cùng màu (tối đa maxBatchCount)
+        /// - Trích xuất các hạt ngay lập tức khỏi mảng cát, cập nhật số lượng và kích hoạt sụt lở địa hình
+        /// - Trả về danh sách hạt để phóng đàn hành khách bay vào nóc xe
         /// </summary>
-        public List<PassengerAbsorbItem> TryAbsorbPassengerBatchNearCar(Car car, Vector3 carWorldPos, float checkRadius, int maxBatchCount)
+        /// <summary>
+        /// Chiếu vị trí 3D của xe lên toạ độ ô ma trận (col, row) trên bàn tranh cát (Chuẩn Cocos 1:1)
+        /// Chuyển đổi 3D -> Screen -> RectTransform Local -> Grid Cell.
+        /// </summary>
+        public bool WorldPosToGridCell(Vector3 carWorldPos, out int col, out int row)
+        {
+            col = -1;
+            row = -1;
+            Camera cam3D = MainCamera;
+            Camera camUI = CameraUI;
+            RectTransform rt = GetComponent<RectTransform>();
+            if (cam3D == null || rt == null) return false;
+
+            Vector3 screenPos = cam3D.WorldToScreenPoint(carWorldPos);
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(rt, screenPos, camUI, out Vector2 localPoint))
+            {
+                float spX = config != null ? config.beadSpacingX : (beadSpacingX > 0f ? beadSpacingX : (beadSpacing > 0f ? beadSpacing : 27f));
+                float spY = config != null ? config.beadSpacingY : (beadSpacingY > 0f ? beadSpacingY : 24.32f);
+                float offX = config != null ? config.boardOffsetX : boardOffsetX;
+                float offY = config != null ? config.boardOffsetY : boardOffsetY;
+                int totalCols = config != null ? config.columns : columns;
+                int totalRows = config != null ? config.rows : rows;
+
+                float startX = -((totalCols - 1) * spX) * 0.5f + offX;
+                float startY = spY * 0.5f + offY;
+
+                col = Mathf.RoundToInt((localPoint.x - startX) / spX);
+                row = Mathf.RoundToInt((localPoint.y - startY) / spY);
+                return col >= -3 && col <= totalCols + 3 && row >= -3 && row <= totalRows + 3;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// TRÍCH XUẤT ĐÀN HÀNH KHÁCH (Batch Extract chuẩn Cocos 1:1)
+        /// Khi xe chạy qua khu vực đón khách tiếp giáp viền Gate hoặc chân tranh cát:
+        /// - Chiếu vị trí 3D của xe lên ma trận ô SandBoard (carCol, carRow)
+        /// - Quét trong bán kính span = 5 ô quanh xe xem có ô Gate nào chứa khách cùng màu không
+        /// - Lan truyền BFS gom cụm đàn hạt cùng màu (tối đa maxBatchCount)
+        /// - Trích xuất các hạt ngay lập tức khỏi mảng cát, cập nhật số lượng và kích hoạt sụt lở địa hình
+        /// - Trả về danh sách hạt để phóng đàn hành khách bay vào nóc xe
+        /// </summary>
+        public List<PassengerAbsorbItem> TryExtractPassengerBatchNearCar(Car car, Vector3 carWorldPos, float checkRadius, int maxBatchCount)
         {
             List<PassengerAbsorbItem> batch = new List<PassengerAbsorbItem>();
             if (car == null || beadColorIndices == null || maxBatchCount <= 0) return batch;
 
             int targetColorIdx = (int)car.carColor;
-            float bestDistSqr = checkRadius * checkRadius;
             int startGateCol = -1;
             int startGateRow = -1;
 
             var roadCfg = WhoGetInBus.Data.LevelConfigLoader.GetRoadConfig(currentRoadId);
-            if (roadCfg != null && roadCfg.gateSet != null && roadCfg.gateSet.Count > 0)
+
+            // 1. CHUẨN COCOS 1:1: Chiếu vị trí xe lên hệ lưới tranh cát 2D để tìm cổng Gate đón khách
+            if (WorldPosToGridCell(carWorldPos, out int carCol, out int carRow))
             {
+                int span = 5; // Bán kính quét 5 ô chuẩn selectAbsorbCandidates trong Cocos
+                int colMin = Mathf.Max(0, carCol - span);
+                int colMax = Mathf.Min(columns - 1, carCol + span);
+                int rowMin = Mathf.Max(0, carRow - span);
+                int rowMax = Mathf.Min(rows - 1, carRow + span);
+
+                float bestGridDistSqr = float.MaxValue;
+
+                if (roadCfg != null && roadCfg.gateSet != null && roadCfg.gateSet.Count > 0)
+                {
+                    foreach (var gateCoord in roadCfg.gateSet)
+                    {
+                        int gc = gateCoord.x;
+                        int gr = 39 - gateCoord.y;
+
+                        if (gc >= colMin && gc <= colMax && gr >= rowMin && gr <= rowMax)
+                        {
+                            if (beadColorIndices[gc, gr] == targetColorIdx)
+                            {
+                                float d2 = (gc - carCol) * (gc - carCol) + (gr - carRow) * (gr - carRow);
+                                if (d2 < bestGridDistSqr)
+                                {
+                                    bestGridDistSqr = d2;
+                                    startGateCol = gc;
+                                    startGateRow = gr;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Fallback nếu chưa thấy theo Grid Cell: quét theo khoảng cách 3D thực tế
+            if (startGateCol < 0 && roadCfg != null && roadCfg.gateSet != null)
+            {
+                float bestDistSqr = checkRadius * checkRadius;
                 foreach (var gateCoord in roadCfg.gateSet)
                 {
                     int c = gateCoord.x;
@@ -514,7 +597,7 @@ namespace WhoGetInBus.GamePlay
                 }
             }
 
-            // Fallback nếu chưa tìm thấy qua gateSet: tìm ở đáy
+            // 3. Fallback cuối cùng: tìm ở đáy
             if (startGateCol < 0)
             {
                 if (TryGetPassengerAtBottom(car.carColor, out _, out _, out int fbCol, out int fbRow))
@@ -533,7 +616,9 @@ namespace WhoGetInBus.GamePlay
             queue.Enqueue(new Vector2Int(startGateCol, startGateRow));
             visited.Add(startGateCol * 1000 + startGateRow);
 
-            int[,] dirs = new int[,] { { 0, 1 }, { 0, -1 }, { 1, 0 }, { -1, 0 }, { 1, 1 }, { -1, 1 } };
+            int[,] dirs = new int[,] { { 0, 1 }, { 0, -1 }, { 1, 0 }, { -1, 0 }, { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } };
+
+            List<Vector2Int> extractedHoles = new List<Vector2Int>();
 
             while (queue.Count > 0 && batch.Count < maxBatchCount)
             {
@@ -547,10 +632,11 @@ namespace WhoGetInBus.GamePlay
                     row = r,
                     worldPos = GetPassenger3DWorldPosition(c, r)
                 });
+                extractedHoles.Add(new Vector2Int(c, r));
 
                 if (batch.Count >= maxBatchCount) break;
 
-                for (int d = 0; d < 6; d++)
+                for (int d = 0; d < 8; d++)
                 {
                     int nc = c + dirs[d, 0];
                     int nr = r + dirs[d, 1];
@@ -567,7 +653,33 @@ namespace WhoGetInBus.GamePlay
                 }
             }
 
+            // Trích xuất ngay lập tức các hạt khỏi bàn cát và kích hoạt sụt lở cát địa hình (chuẩn Cocos 1:1)
+            foreach (var hole in extractedHoles)
+            {
+                if (beadColorIndices[hole.x, hole.y] >= 0)
+                {
+                    beadColorIndices[hole.x, hole.y] = -1;
+                    totalRemainingBeads = Mathf.Max(0, totalRemainingBeads - 1);
+                    ApplySandTerrainCollapse(hole.x, hole.y);
+                }
+            }
+
+            RefreshGraphic();
+
+            if (totalRemainingBeads <= 0)
+            {
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.OnLevelVictory();
+                }
+            }
+
             return batch;
+        }
+
+        public List<PassengerAbsorbItem> TryAbsorbPassengerBatchNearCar(Car car, Vector3 carWorldPos, float checkRadius, int maxBatchCount)
+        {
+            return TryExtractPassengerBatchNearCar(car, carWorldPos, checkRadius, maxBatchCount);
         }
 
         /// <summary>
@@ -1045,5 +1157,45 @@ namespace WhoGetInBus.GamePlay
             if (colorIdx >= 0 && colorIdx < palette.Length) return palette[colorIdx];
             return Color.white;
         }
+
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+            try
+            {
+                int roadId = currentRoadId > 0 ? currentRoadId : (levelId > 0 ? WhoGetInBus.Data.LevelConfigLoader.LoadLevel(levelId)?.road ?? 5 : 5);
+                var roadCfg = WhoGetInBus.Data.LevelConfigLoader.GetRoadConfig(roadId);
+
+                if (roadCfg != null && roadCfg.gateSet != null && roadCfg.gateSet.Count > 0)
+                {
+                    Gizmos.color = new Color(1f, 0.45f, 0f, 0.95f); // Màu cam rực rỡ cho cổng đón khách (Boarding Gate)
+                    Vector3 prevPos = Vector3.zero;
+                    bool hasPrev = false;
+
+                    foreach (var gateCoord in roadCfg.gateSet)
+                    {
+                        int c = gateCoord.x;
+                        int r = 39 - gateCoord.y;
+                        if (c >= 0 && c < columns && r >= 0 && r < rows)
+                        {
+                            Vector3 pos = GetPassenger3DWorldPosition(c, r);
+
+                            // Vẽ khối Gate 3D tại từng điểm tiếp giáp đường xe
+                            Gizmos.DrawWireCube(pos, new Vector3(0.28f, 0.15f, 0.28f));
+                            Gizmos.DrawSphere(pos, 0.1f);
+
+                            if (hasPrev && Vector3.Distance(prevPos, pos) < 1.5f)
+                            {
+                                Gizmos.DrawLine(prevPos, pos);
+                            }
+                            prevPos = pos;
+                            hasPrev = true;
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+#endif
     }
 }

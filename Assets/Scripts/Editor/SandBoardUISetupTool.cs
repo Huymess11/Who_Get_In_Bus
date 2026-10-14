@@ -99,8 +99,9 @@ namespace WhoGetInBus.EditorTools
             rt.localScale = Vector3.one;
             rt.localRotation = Quaternion.identity;
 
-            // Xếp thứ tự hierarchy: phần tử thứ 2 (vị trí index 1, ngay sau bg)
-            boardObj.transform.SetSiblingIndex(1);
+            // Xếp thứ tự hierarchy: hiển thị ngay trên Top để không bị ảnh nền mặt đường của Top che khuất
+            int topIdx = topTransform != null ? topTransform.GetSiblingIndex() : 3;
+            boardObj.transform.SetSiblingIndex(topIdx + 1);
 
             // 5. Gắn các Component cần thiết
             CanvasRenderer cr = boardObj.GetComponent<CanvasRenderer>();
