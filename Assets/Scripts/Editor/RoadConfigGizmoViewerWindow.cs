@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEditor;
 using WhoGetInBus.GamePlay;
+using WhoGetInBus.Data;
 
 namespace WhoGetInBus.EditorTools
 {
@@ -71,10 +72,17 @@ namespace WhoGetInBus.EditorTools
         private float heightOffset = 0.05f;
         private Vector3 worldOffset = Vector3.zero;
 
+        // Hiệu chỉnh tỷ lệ vừa lòng đường (đồng bộ qua ScriptableObject RoadTrackConfigData)
+        private RoadTrackConfigData trackConfig;
+        private bool enableTrackScale = true;
+        private Vector2 trackScale = new Vector2(0.86f, 0.72f);
+        private float trackOffsetX = 0f;
+        private float trackOffsetZ = -0.45f;
+
         // Cài đặt 2D Canvas UI
         private Canvas targetCanvas;
-        private Vector2 canvasScale = new Vector2(125f, 125f);
-        private Vector2 canvasOffset = new Vector2(0f, -180f);
+        private Vector2 canvasScale = new Vector2(104.35f, 88.5f);
+        private Vector2 canvasOffset = new Vector2(0f, -150f);
         private float configJunctionY = 1.91f;
 
         private bool showLoopPath = true;
@@ -286,6 +294,12 @@ namespace WhoGetInBus.EditorTools
                         float calcX = invertX ? -x : x;
                         float calcZ = invertZ ? -yOrZ : yOrZ;
 
+                        if (enableTrackScale)
+                        {
+                            calcX *= trackScale.x;
+                            calcZ = calcZ * trackScale.y + trackOffsetZ;
+                        }
+
                         if (displayMode == WindowDisplayMode.Canvas_2D_UI)
                         {
                             float pixelX = calcX * canvasScale.x + canvasOffset.x;
@@ -427,6 +441,11 @@ namespace WhoGetInBus.EditorTools
             if (displayMode == WindowDisplayMode.Canvas_2D_UI)
             {
                 EditorGUILayout.HelpBox($"Đang ở chế độ 2D Canvas UI: Khớp chuẩn theo 'Map Canvass' (Scale = {canvasScale.x}, Junction Y = {configJunctionY}).", MessageType.Info);
+            }
+
+            if (enableTrackScale)
+            {
+                EditorGUILayout.HelpBox($"📐 Track Scale Đang Bật: Co giãn (X={trackScale.x:F2}, Z={trackScale.y:F2}), Offset Z={trackOffsetZ:F2}. Khớp vừa khít lòng đường nhựa Unity (Có thể tuỳ chỉnh trong tab Cài Đặt).", MessageType.None);
             }
 
             EditorGUILayout.EndVertical();
@@ -660,16 +679,16 @@ namespace WhoGetInBus.EditorTools
 
             EditorGUI.BeginChangeCheck();
             targetCanvas = (Canvas)EditorGUILayout.ObjectField("Target Canvas (Map Canvass):", targetCanvas, typeof(Canvas), true);
-            canvasScale = EditorGUILayout.Vector2Field("Tỷ lệ Canvas Scale (Chuẩn: 125):", canvasScale);
-            canvasOffset = EditorGUILayout.Vector2Field("Dịch tâm Canvas Offset (Chuẩn: 0, -180):", canvasOffset);
+            canvasScale = EditorGUILayout.Vector2Field("Tỷ lệ Canvas Scale (Chuẩn: 104.35, 88.5):", canvasScale);
+            canvasOffset = EditorGUILayout.Vector2Field("Dịch tâm Canvas Offset (Chuẩn: 0, -150):", canvasOffset);
             configJunctionY = EditorGUILayout.FloatField("Toạ độ Ngã Rẽ Junction Y (Chuẩn: 1.91):", configJunctionY);
 
             EditorGUILayout.Space(4);
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("🎯 Đặt Lại Chuẩn Map Canvass (125, -180)", GUILayout.Height(26)))
+            if (GUILayout.Button("🎯 Đặt Lại Chuẩn Map Canvass (104.35, 88.5, -150)", GUILayout.Height(26)))
             {
-                canvasScale = new Vector2(125f, 125f);
-                canvasOffset = new Vector2(0f, -180f);
+                canvasScale = new Vector2(104.35f, 88.5f);
+                canvasOffset = new Vector2(0f, -150f);
                 configJunctionY = 1.91f;
                 invertZ = true;
                 invertX = false;
@@ -682,6 +701,20 @@ namespace WhoGetInBus.EditorTools
             invertX = EditorGUILayout.Toggle("Đảo ngược trục X (-X):", invertX);
             worldOffset = EditorGUILayout.Vector3Field("Dịch tâm toạ độ (World Offset):", worldOffset);
             heightOffset = EditorGUILayout.FloatField("Độ cao nâng lên (Height Offset):", heightOffset);
+
+            EditorGUILayout.Space(6);
+            EditorGUILayout.LabelField("TỶ LỆ KHỚP ĐƯỜNG ĐI (TRACK SCALE CHO UNITY):", EditorStyles.boldLabel);
+            enableTrackScale = EditorGUILayout.Toggle("Bật Co Giãn Khớp Đường:", enableTrackScale);
+            if (enableTrackScale)
+            {
+                trackScale = EditorGUILayout.Vector2Field("Tỷ lệ co giãn (X, Z):", trackScale);
+                trackOffsetZ = EditorGUILayout.FloatField("Bù trục dọc Offset Z:", trackOffsetZ);
+                if (GUILayout.Button("🎯 Đặt Lại Tỷ Lệ Chuẩn (0.78, 0.72, -0.45)", GUILayout.Height(24)))
+                {
+                    trackScale = new Vector2(0.78f, 0.72f);
+                    trackOffsetZ = -0.45f;
+                }
+            }
 
             if (EditorGUI.EndChangeCheck())
             {
@@ -999,6 +1032,10 @@ namespace WhoGetInBus.EditorTools
             viewer.canvasScale = canvasScale;
             viewer.canvasOffset = canvasOffset;
             viewer.configJunctionY = configJunctionY;
+
+            viewer.enableTrackScale = enableTrackScale;
+            viewer.trackScale = trackScale;
+            viewer.trackOffsetZ = trackOffsetZ;
 
             viewer.showInGameView = true;
             viewer.showLoopPath = showLoopPath;

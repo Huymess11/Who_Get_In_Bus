@@ -108,6 +108,20 @@ namespace WhoGetInBus.GamePlay
         // Lưu trữ danh sách xe theo từng cột: column[c] chứa hàng đợi các xe từ trước ra sau
         private List<List<CarLoopFollower>> columnsOfCars = new List<List<CarLoopFollower>>();
 
+        /// <summary>Bãi xe đã sinh xe cho màn hiện tại chưa.</summary>
+        public bool HasLoaded { get; private set; }
+
+        /// <summary>Số xe còn nằm trong bãi chưa xuất bến (Cocos: _boardBucketCount). 0 = hết xe → đường đua chuyển sang tốc độ Final & hút cát chế độ relaxed.</summary>
+        public int RemainingCarCount
+        {
+            get
+            {
+                int n = 0;
+                for (int c = 0; c < columnsOfCars.Count; c++) n += columnsOfCars[c].Count;
+                return n;
+            }
+        }
+
         private void Awake()
         {
             Instance = this;
@@ -233,6 +247,7 @@ namespace WhoGetInBus.GamePlay
                 columnsOfCars.Add(colList);
             }
 
+            HasLoaded = true;
             Debug.Log($"<color=green>[ParkingLotManager]</color> Đã sinh bãi đỗ {cols} cột xe thành công!");
         }
 
@@ -266,6 +281,7 @@ namespace WhoGetInBus.GamePlay
                 }
             }
             columnsOfCars.Clear();
+            HasLoaded = false;
         }
 
         /// <summary>
@@ -286,6 +302,12 @@ namespace WhoGetInBus.GamePlay
                         if (r == 0)
                         {
                             // 1. Xe ở hàng đầu tiên -> Xuất bến ra đường đua đón khách!
+                            var track = LoopTrackSystem.Instance;
+                            if (track == null || !track.PathReady)
+                            {
+                                car.PlayBlockedBumpAnimation();
+                                return;
+                            }
                             colList.RemoveAt(0);
                             CarLoopFollower follower = car as CarLoopFollower ?? car.GetComponent<CarLoopFollower>();
                             StartCoroutine(DispatchCarRoutine(follower, c));
@@ -308,92 +330,60 @@ namespace WhoGetInBus.GamePlay
             return true;
         }
 
+        /// <summary>
+        /// XUẤT BẾN CHUẨN COCOS (LevelController.deployEntityToCartTrack + Bucket.deployToCartTrack):
+        /// 1. Giữ chỗ nhập làn (nếu quanh điểm nhập đã có xe thì xe lao ra với tốc độ giảm).
+        /// 2. Xe lao THẲNG tới điểm nhập làn trên tim đường với tốc độ tối đa (road.max_speed × 1.5), nhún nhẹ 0.2 và xoay dần về hướng đường.
+        /// 3. Tới nơi: đăng ký vào đường đua đúng vị trí đó rồi chạy tiếp theo cơ chế CartTrackController.
+        /// </summary>
         private IEnumerator DispatchCarRoutine(CarLoopFollower car, int colIndex)
         {
             if (car == null) yield break;
 
             car.StopBlockedBumpAnimation();
 
+            // Cocos: bucket rời bãi ngay khi được chọn → các xe phía sau dồn lên luôn, không chờ xe nhập làn xong
+            AdvanceColumn(colIndex);
+
             var track = LoopTrackSystem.Instance;
-            var plan = track != null ? track.CreateDeployPlan(car.transform.position) : default;
-            Vector3 entryPos = plan.mergeWorldPos;
-            float entryDist = plan.mergeDistance;
-            Quaternion targetRot = plan.targetRotation;
+            CartDeployPlan plan = track != null ? track.CreateCartDeployPlan(car.transform.position) : null;
+            if (plan == null || !plan.valid) yield break;
 
+            var reservation = track.PrepareCartDeploy(car, plan);
+            if (reservation == null) yield break;
+
+            float speed = reservation.reducedSpeed ? track.BlockedDeployMoveSpeed : track.MaxMoveSpeed;
             Vector3 startPos = car.transform.position;
-
-            // QUỸ ĐẠO XUẤT BẾN CHUẨN GỐC COCOS (Cubic Bezier Deploy Path):
-            // 1. P0: Vị trí xuất phát trong bãi đỗ xe
-            Vector3 p0 = startPos;
-
-            // 2. P1: Xe chạy THẲNG TIẾN LÊN PHÍA TRƯỚC (hướng +Z) để ra khỏi làn bãi đỗ!
-            float forwardOffset = Mathf.Clamp((entryPos.z - startPos.z) * 0.5f, 0.35f, 1.2f);
-            Vector3 p1 = startPos + Vector3.forward * forwardOffset;
-
-            // 3. P2: Điểm uốn cong tiếp cận dần vào hướng tiếp tuyến của đường đua (ôm cua mượt mà)
-            Vector3 p2 = entryPos - plan.entryTangent.normalized * 0.45f;
-            p2.y = startPos.y;
-
-            // 4. P3: Điểm nhập làn trên đường đua
-            Vector3 p3 = entryPos;
+            Quaternion startRot = car.transform.rotation;
+            float distance = Vector3.Distance(startPos, plan.mergeWorld);
+            float duration = Mathf.Max(0.1f, distance / Mathf.Max(0.01f, speed));
+            float arcHeight = track.deployArcHeight;
 
             float elapsed = 0f;
-            float totalDist = Vector3.Distance(startPos, entryPos);
-            float duration = Mathf.Clamp(totalDist / 5.5f, 0.35f, 0.65f);
-            const float arcPeakHeight = 0.08f; // Độ nhún ga nhẹ khi xuất bến chuẩn Cocos
-
-            Quaternion initialRot = car.transform.rotation;
-
-            while (elapsed < duration && car != null)
+            while (elapsed < duration)
             {
+                if (car == null) yield break;
+                if (!track.IsCartDeployActive(car)) yield break; // bị huỷ (nạp màn mới...)
+
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
-                float easeT = Mathf.SmoothStep(0f, 1f, t);
 
-                // Tính toạ độ theo đường cong Cubic Bezier
-                float oneMinusT = 1f - easeT;
-                Vector3 currentPos =
-                    oneMinusT * oneMinusT * oneMinusT * p0 +
-                    3f * oneMinusT * oneMinusT * easeT * p1 +
-                    3f * oneMinusT * easeT * easeT * p2 +
-                    easeT * easeT * easeT * p3;
-
-                // Độ nhún nảy cung vòng trục Y hình sin
-                currentPos.y += Mathf.Sin(Mathf.PI * easeT) * arcPeakHeight;
-                car.transform.position = currentPos;
-
-                // Tính tiếp tuyến đạo hàm của đường cong Bezier để xoay đầu xe mượt mà từ từ
-                Vector3 tangent =
-                    3f * oneMinusT * oneMinusT * (p1 - p0) +
-                    6f * oneMinusT * easeT * (p2 - p1) +
-                    3f * easeT * easeT * (p3 - p2);
-                tangent.y = 0;
-
-                if (tangent.sqrMagnitude > 0.001f)
-                {
-                    Quaternion curveRot = Quaternion.LookRotation(tangent.normalized, Vector3.up);
-                    // Hòa trộn góc quay: ở đầu t < 0.2 giữ thẳng, càng về cuối càng bám sát góc targetRot
-                    float rotBlend = Mathf.Clamp01((t - 0.2f) / 0.8f);
-                    car.transform.rotation = Quaternion.Slerp(initialRot, curveRot, rotBlend);
-                }
+                // Chuyển động tuyến tính + cung nhún trục Y (Cocos: tween linear, arcHeight 0.2)
+                Vector3 pos = Vector3.Lerp(startPos, plan.mergeWorld, t);
+                pos.y = Mathf.Lerp(startPos.y, plan.mergeWorld.y, t) + Mathf.Sin(Mathf.PI * t) * arcHeight;
+                car.transform.position = pos;
+                car.transform.rotation = Quaternion.Slerp(startRot, plan.targetRotation, t);
 
                 yield return null;
             }
 
-            if (car != null)
+            if (car == null) yield break;
+
+            if (track.IsCartDeployActive(car))
             {
-                car.transform.position = entryPos;
-                car.transform.rotation = targetRot;
-                car.EnterTrack(entryDist);
-
-                if (track != null)
-                {
-                    track.RegisterCarOnTrack(car);
-                }
+                car.transform.position = plan.mergeWorld;
+                track.RegisterCartAtDeployPlan(car, plan);
             }
-
-            // Cho các xe phía sau trong cột này dồn lên phía trước
-            AdvanceColumn(colIndex);
         }
 
         private void AdvanceColumn(int colIndex)

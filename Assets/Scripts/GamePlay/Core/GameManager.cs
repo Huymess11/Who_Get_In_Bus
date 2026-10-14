@@ -86,6 +86,7 @@ namespace WhoGetInBus.GamePlay
             if (track != null)
             {
                 track.LoadRoadFromConfig(roadId, prefabData);
+                track.currentLevel = levelData; // minibus_tran / bus_tran: số hạt xe hút mỗi lượt
             }
 
             // 3. Nạp Bãi Xe

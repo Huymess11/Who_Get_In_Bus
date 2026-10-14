@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using UnityEngine;
+using WhoGetInBus.Data;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -60,13 +61,27 @@ namespace WhoGetInBus.GamePlay
         [Tooltip("Dịch toạ độ gốc toàn bộ đường đi")]
         public Vector3 worldOffset = Vector3.zero;
 
+        [Header("--- CẤU HÌNH SCRIPTABLEOBJECT (LƯU VĨNH VIỄN) ---")]
+        [Tooltip("File ScriptableObject lưu trữ toàn bộ thông số co giãn & căn chỉnh đường đua")]
+        public RoadTrackConfigData trackConfig;
+
+        [Header("--- HIỆU CHỈNH TỶ LỆ ĐƯỜNG ĐUA (SCALE VỪA LÒNG ĐƯỜNG) ---")]
+        [Tooltip("Bật/tắt tự động co giãn toạ độ waypoint khớp với mặt đường")]
+        public bool enableTrackScale = true;
+        [Tooltip("Tỷ lệ scale trục X và Z để thu hẹp vừa khít lòng đường nhựa (Mặc định: X = 0.86, Z = 0.72)")]
+        public Vector2 trackScale = new Vector2(0.86f, 0.72f);
+        [Tooltip("Độ dịch tâm trục X (trái/phải)")]
+        public float trackOffsetX = 0f;
+        [Tooltip("Độ dịch tâm trục Z (tiến/lùi) để vòm chữ U và đáy vừa khít tim đường")]
+        public float trackOffsetZ = -0.45f;
+
         [Header("--- CÀI ĐẶT 2D CANVAS UI (MAP CANVASS) ---")]
         [Tooltip("Canvas UI chứa đường 2D (Tự động tìm Map Canvass nếu để trống)")]
         public Canvas targetCanvas;
-        [Tooltip("Tỷ lệ scale từ toạ độ Config sang Canvas pixels. Chuẩn game Cocos là 125")]
-        public Vector2 canvasScale = new Vector2(125f, 125f);
-        [Tooltip("Độ lệch tâm trên Canvas (pixels). Đường nối Top & Bottom là (0, -180)")]
-        public Vector2 canvasOffset = new Vector2(0f, -180f);
+        [Tooltip("Tỷ lệ scale từ toạ độ Config 3D sang Canvas pixels (Canvas 1080: X = 72.5 * 1.44 = 104.35, Y = X * sin(58°) = 88.5)")]
+        public Vector2 canvasScale = new Vector2(104.35f, 88.5f);
+        [Tooltip("Độ lệch tâm trên Canvas (pixels). Đường nối Top & Bottom trên Canvas là Y = -150")]
+        public Vector2 canvasOffset = new Vector2(0f, -150f);
         [Tooltip("Toạ độ ngã rẽ Top-Bottom trong config (mặc định 1.91)")]
         public float configJunctionY = 1.91f;
 
@@ -115,6 +130,49 @@ namespace WhoGetInBus.GamePlay
 
         private void OnEnable()
         {
+            EnsureConfigLoaded();
+            ReloadRoadConfigs();
+            RoadTrackConfigData.ConfigChanged += OnTrackConfigChanged;
+        }
+
+        private void OnDisable()
+        {
+            RoadTrackConfigData.ConfigChanged -= OnTrackConfigChanged;
+        }
+
+        // RoadTrackConfigData (Assembly-CSharp) không thể tham chiếu trực tiếp lớp này (nằm trong assembly Editor) nên báo qua event.
+        private void OnTrackConfigChanged(RoadTrackConfigData cfg)
+        {
+            if (trackConfig == null) trackConfig = cfg;
+            if (trackConfig != cfg) return;
+            SyncFromConfig();
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(gameObject);
+#endif
+        }
+
+        public void EnsureConfigLoaded()
+        {
+            if (trackConfig == null)
+            {
+#if UNITY_EDITOR
+                trackConfig = UnityEditor.AssetDatabase.LoadAssetAtPath<RoadTrackConfigData>("Assets/Data/RoadTrackConfigData.asset");
+#endif
+            }
+            if (trackConfig != null)
+            {
+                SyncFromConfig();
+            }
+        }
+
+        public void SyncFromConfig()
+        {
+            if (trackConfig == null) return;
+            enableTrackScale = trackConfig.enableTrackScale;
+            trackScale = trackConfig.TrackScale;
+            trackOffsetX = trackConfig.offsetX;
+            trackOffsetZ = trackConfig.offsetZ;
+            heightOffset = trackConfig.heightOffset;
             ReloadRoadConfigs();
         }
 
@@ -289,6 +347,12 @@ namespace WhoGetInBus.GamePlay
         {
             float calcX = invertX ? -x : x;
             float calcZ = invertZ ? -yOrZ : yOrZ;
+
+            if (enableTrackScale)
+            {
+                calcX = calcX * trackScale.x + trackOffsetX;
+                calcZ = calcZ * trackScale.y + trackOffsetZ;
+            }
 
             if (planeMode == DisplayPlane.Canvas_2D_UI)
             {

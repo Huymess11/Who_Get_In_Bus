@@ -47,6 +47,17 @@ namespace WhoGetInBus.Data
         public List<int> queue = new List<int>();
 
         /// <summary>
+        /// [min, max] số hạt tối đa mà xe thường (minibus) hút trong 1 lượt chạy qua cổng (Cocos: levelCfg.minibus_tran).
+        /// Mỗi lần xe cắt qua điểm vào vòng loop sẽ random lại 1 giá trị trong khoảng này.
+        /// </summary>
+        public List<int> minibus_tran = new List<int>();
+
+        /// <summary>
+        /// [min, max] số hạt tối đa mà xe Extra (3 trong 1) hút trong 1 lượt (Cocos: levelCfg.bus_tran).
+        /// </summary>
+        public List<int> bus_tran = new List<int>();
+
+        /// <summary>
         /// Danh sách xe trong nhà để xe (gara) nếu có
         /// </summary>
         public List<List<string>> carport = new List<List<string>>();
@@ -297,6 +308,21 @@ namespace WhoGetInBus.Data
                     road.speed = sp;
                 }
 
+                var msMatch = Regex.Match(block, @"""max_speed""\s*:\s*([0-9.]+)");
+                if (msMatch.Success && float.TryParse(msMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float ms))
+                {
+                    road.max_speed = ms;
+                }
+
+                var asMatch = Regex.Match(block, @"""acc_speed""\s*:\s*([0-9.]+)");
+                if (asMatch.Success && float.TryParse(asMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float acs))
+                {
+                    road.acc_speed = acs;
+                }
+
+                var cvMatch = Regex.Match(block, @"""cave_path""\s*:\s*""([^""]*)""");
+                if (cvMatch.Success) road.cave_path = cvMatch.Groups[1].Value;
+
                 var lpMatch = Regex.Match(block, @"""loop_path_root""\s*:\s*""([^""]*)""");
                 if (lpMatch.Success) road.loop_path_root = lpMatch.Groups[1].Value;
 
@@ -420,6 +446,10 @@ namespace WhoGetInBus.Data
 
                 // Parse mảng "queue"
                 lvl.queue = Parse1DIntArray(levelBlock, "queue");
+
+                // Parse khoảng số hạt hút mỗi lượt của xe thường / xe Extra (Cocos: minibus_tran / bus_tran)
+                lvl.minibus_tran = Parse1DIntArray(levelBlock, "minibus_tran");
+                lvl.bus_tran = Parse1DIntArray(levelBlock, "bus_tran");
 
                 // Parse mảng 2D "carport"
                 lvl.carport = Parse2DStringArray(levelBlock, "carport");

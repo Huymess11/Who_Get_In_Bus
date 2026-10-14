@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using TMPro;
@@ -22,6 +23,14 @@ namespace WhoGetInBus.GamePlay
         public bool isPendingExit = false;
         public bool isExtraCar = false; // Xe buýt 2 tầng siêu cấp
         public bool isMerging = false;  // Đang trong hiệu ứng gộp 3 xe
+
+        [Header("Đón Khách (Cocos Bucket: inFlightSandCount / absorbChainCap)")]
+        [Tooltip("Số khách đã bị hút khỏi bàn cát nhưng chưa bay tới xe (Cocos: inFlightSandCount)")]
+        public int inFlightSandCount = 0;
+        [Tooltip("Số hạt tối đa hút trong 1 lượt quét (random lại mỗi lần xe cắt qua điểm vào vòng loop)")]
+        public int absorbChainCap = 8;
+        [Tooltip("Điểm neo để chiếu lên bàn cát & làm đích bay của khách. Bỏ trống: dùng vị trí nhãn số ghế, rồi tới vị trí xe (Cocos: boardAnchor)")]
+        public Transform boardAnchor;
 
         [Header("Giao Diện & Hiển Thị")]
         public TMP_Text seatText;
@@ -115,6 +124,7 @@ namespace WhoGetInBus.GamePlay
             isInLoop = false;
             isPendingExit = false;
             isMerging = false;
+            inFlightSandCount = 0;
 
             UpdateVisuals();
         }
@@ -146,16 +156,82 @@ namespace WhoGetInBus.GamePlay
         }
 
         /// <summary>
+        /// Nhu cầu thực: số ghế còn trống sau khi trừ đi khách đang bay tới (Cocos: Bucket.realDemand).
+        /// </summary>
+        public int RealDemand => Mathf.Max(0, currentSeats - inFlightSandCount);
+
+        /// <summary>Đặt khoảng [min, max] cho số hạt hút mỗi lượt rồi random luôn 1 giá trị (Cocos: setAbsorbChainTran).</summary>
+        public void SetAbsorbChainTran(IList<int> tran, int defaultMin, int defaultMax)
+        {
+            absorbChainMin = defaultMin;
+            absorbChainMax = defaultMax;
+            if (tran != null && tran.Count >= 2)
+            {
+                absorbChainMin = Mathf.Min(tran[0], tran[1]);
+                absorbChainMax = Mathf.Max(tran[0], tran[1]);
+            }
+            RerollAbsorbChainCap();
+        }
+
+        /// <summary>Random lại số hạt tối đa hút trong lượt kế tiếp (gọi mỗi lần xe cắt qua điểm vào vòng loop).</summary>
+        public void RerollAbsorbChainCap()
+        {
+            absorbChainCap = absorbChainMax > absorbChainMin ? Random.Range(absorbChainMin, absorbChainMax + 1) : absorbChainMin;
+        }
+
+        private int absorbChainMin = 8;
+        private int absorbChainMax = 12;
+
+        /// <summary>Số hạt được phép hút trong lượt quét này = min(absorbChainCap, nhu cầu thực).</summary>
+        public int GetAbsorbChainCap()
+        {
+            return Mathf.Min(absorbChainCap, RealDemand);
+        }
+
+        /// <summary>
+        /// Điểm neo trong thế giới 3D để (1) chiếu lên bàn cát tìm ô cần hút, (2) làm đích cho khách bay tới.
+        /// Cocos: Bucket.getBoardAnchorUIWorldPos (node "boardAnchor" hoặc renderRoot2D — chính là nhãn số ghế trên nóc xe).
+        /// </summary>
+        public Vector3 GetBoardAnchorWorldPos()
+        {
+            if (boardAnchor != null) return boardAnchor.position;
+            if (seatText != null) return seatText.transform.position;
+            return transform.position + Vector3.up * 0.85f;
+        }
+
+        /// <summary>
+        /// Khách bay tới nơi: trừ ghế, nảy thân xe (Cocos: onAbsorbSandArrive).
+        /// </summary>
+        public virtual void OnBoardingArrive(int count)
+        {
+            inFlightSandCount = Mathf.Max(0, inFlightSandCount - count);
+            AbsorbPassengers(count);
+        }
+
+        /// <summary>
         /// Đón 1 hành khách vào xe: giảm ghế và kích hoạt hiệu ứng rung nảy
         /// </summary>
         public virtual void AbsorbPassenger()
         {
-            if (currentSeats > 0)
-            {
-                currentSeats--;
-                if (seatText != null) seatText.text = currentSeats.ToString();
-                bounceTimer = 0.25f; // Rung nảy thân xe
-            }
+            AbsorbPassengers(1);
+        }
+
+        public virtual void AbsorbPassengers(int count)
+        {
+            if (count <= 0 || currentSeats <= 0) return;
+            currentSeats = Mathf.Max(0, currentSeats - count);
+            if (seatText != null) seatText.text = currentSeats.ToString();
+            bounceTimer = 0.25f; // Rung nảy thân xe
+        }
+
+        /// <summary>Ẩn/hiện toàn bộ phần nhìn thấy của xe (dùng khi xe chui vào hầm - Cocos: enterCave/exitCave).</summary>
+        public void SetVisualVisible(bool visible)
+        {
+            var renderers = GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++) renderers[i].enabled = visible;
+            if (seatText != null) seatText.enabled = visible;
+            var col = GetComponent<Collider>();
+            if (col != null) col.enabled = visible;
         }
 
         /// <summary>

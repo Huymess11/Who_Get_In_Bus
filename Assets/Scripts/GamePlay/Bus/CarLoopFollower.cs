@@ -1,71 +1,105 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace WhoGetInBus.GamePlay
 {
     /// <summary>
-    /// ĐIỀU KHIỂN XE CHẠY ĐƯỜNG RAY (Kế thừa từ Car Base)
-    /// Chuẩn game gốc Cocos Creator 1:1 (CartTrackController & BPathCursor):
-    /// - Di chuyển bám chính xác 100% trên tim đường ray bằng Arc-Length Track Spline (không cắt góc, không vẹo đầu)
-    /// - Đầu xe quay mượt mà theo tiếp tuyến nhìn trước (Exponential Damping Yaw)
-    /// - Thân xe nghiêng ôm cua bằng hệ lò xo giảm xóc vật lý (Spring-Damper Banking Lean)
-    /// - Tự động giữ khoảng cách chống va chạm với xe phía trước theo chu vi đường ray (Follow Gap Distance)
-    /// - Cơ chế hút đàn hành khách (Batch Absorb) bay vòng cung Parabol vào xe
-    /// - Rẽ vào làn đường thoát (Exit Track) khi xe đã đón đủ 100% khách
+    /// XE CHẠY ĐƯỜNG RAY (Kế thừa từ Car Base) — trạng thái runtime của 1 cart trong Cocos CartTrackController.
+    ///
+    /// Việc DI CHUYỂN và ĂN CÁT do LoopTrackSystem điều phối tập trung (giống Cocos):
+    ///  - LoopTrackSystem tính "hạn mức quãng đường" (moveAllowance) mỗi khung hình cho từng xe, có giới hạn theo khoảng cách
+    ///    an toàn với xe phía trước, rồi gọi ApplyTrackTransform để đặt vị trí/hướng xe.
+    ///  - Đầu xe quay mượt theo tiếp tuyến nhìn trước (Exponential Damping Yaw),
+    ///    thân xe nghiêng ôm cua bằng lò xo giảm xóc (Spring-Damper Banking Lean).
+    ///  - Xe chỉ hút khách khi nằm ở đoạn từ điểm vào vòng loop tới ngã rẽ thoát (isLoopSkipAbsorb = false) và không ở trong hầm.
+    ///  - Khi nhận đủ khách (ghế = 0 và không còn khách đang bay) xe đánh dấu chờ rẽ ra làn thoát tại ngã rẽ.
     /// </summary>
     public class CarLoopFollower : Car
     {
         [Header("Trạng Thái Di Chuyển Đường Ray")]
+        [Tooltip("Khoảng cách trên vòng loop (hoặc trên đường thoát khi isExiting)")]
         public float currentTrackDistance = 0f;
         public int currentWaypointIdx = 0;
+        [Tooltip("Tốc độ hiệu dụng hiện tại (đơn vị/giây) do LoopTrackSystem tính")]
         public float currentSpeed = 5.0f;
         public float bankingLean = 0f;
         public bool isExiting = false;
 
-        [Header("Thông Số Giảm Xóc Ôm Cua (Spring-Damper Lean)")]
+        [Header("Cờ Đoạn Đường (Cocos: cart runtime)")]
+        [Tooltip("Đang ở đoạn cuối vòng (từ điểm áp chót tới điểm đầu) → được nhân tốc độ accelerateSpeedRatio")]
+        public bool isLoopSegmentBoost = false;
+        [Tooltip("Đang ngoài đoạn được phép ăn cát (sau ngã rẽ thoát, trước điểm vào vòng)")]
+        public bool isLoopSkipAbsorb = true;
+        [Tooltip("Đang chui trong hầm: xe ẩn đi và không ăn cát")]
+        public bool isInCave = false;
+        [Tooltip("Số khách đón được trong lượt vòng hiện tại (Cocos: cart.count)")]
+        public int lapPassengerCount = 1;
+        [Tooltip("Số vòng liên tiếp không đón được ai (Cocos: emptyRoundCount)")]
+        public int emptyRoundCount = 0;
+        [Tooltip("Cuối màn: sau 2 vòng trống thì được hút rộng hơn (Cocos: relaxedAbsorbUnlocked)")]
+        public bool relaxedAbsorbUnlocked = false;
+
+        [Header("Nhập Làn Bị Chặn (Cocos: deploySpeedLimited)")]
+        public bool deploySpeedLimited = false;
+        public float deploySpeedRatio = 1f;
+
+        [HideInInspector] public float deployOverlapEscapeRatio = 0f;
+        [HideInInspector] public float moveAllowance = 0f;
+
+        // Trạng thái hướng đầu xe & nghiêng thân xe
         private float bodyLeanDeg = 0f;
         private float bodyLeanVelocity = 0f;
         private Quaternion facingCurrentRot = Quaternion.identity;
 
-        [Header("Cơ Chế Đón Khách Dọc Đường (Cocos Proximity Batch Boarding)")]
-        [Tooltip("Bán kính quét hút khách viền Gate khi xe chạy ngang qua (chuẩn 3.5m)")]
-        public float absorbCheckRadius = 3.5f;
-        [Tooltip("Nhịp độ quét đón khách liên tục (chuẩn Cocos 0.04s)")]
-        public float absorbInterval = 0.04f;
-        public float flightDuration = 0.32f;
-        public float arcPeakHeight = 1.4f;
-
-        private float nextAbsorbCheckTime = 0f;
-        private int inFlightPassengersCount = 0;
-
         /// <summary>
-        /// Đưa xe nhập làn vào đường đua tại khoảng cách distance trên spline
+        /// Đưa xe nhập làn vào đường đua tại khoảng cách distance trên spline (đặt lại hướng đầu xe theo tiếp tuyến).
         /// </summary>
         public void EnterTrack(float startDistance)
+        {
+            EnterTrack(startDistance, true);
+        }
+
+        /// <summary>
+        /// Đưa xe nhập làn tại khoảng cách distance. snapFacing = false: giữ hướng đầu xe hiện tại
+        /// (xe vừa lao từ bãi đỗ ra đã xoay dần về hướng đường) rồi tiếp tục xoay mượt.
+        /// </summary>
+        public void EnterTrack(float startDistance, bool snapFacing)
         {
             isInLoop = true;
             isPendingExit = false;
             isExiting = false;
             isMerging = false;
             currentTrackDistance = startDistance;
-            currentSpeed = LoopTrackSystem.Instance != null ? LoopTrackSystem.Instance.baseSpeed : 5.0f;
-            inFlightPassengersCount = 0;
+
+            lapPassengerCount = 1;
+            emptyRoundCount = 0;
+            relaxedAbsorbUnlocked = false;
+            deploySpeedLimited = false;
+            deploySpeedRatio = 1f;
+            deployOverlapEscapeRatio = 0f;
+            moveAllowance = 0f;
 
             var track = LoopTrackSystem.Instance;
-            if (track != null)
+            currentSpeed = track != null ? track.MoveSpeed : 5.0f;
+            if (track == null) return;
+
+            track.SyncLoopSegmentFlags(this);
+            track.SyncCaveState(this);
+
+            transform.position = track.EvaluatePosition(currentTrackDistance, false);
+            if (snapFacing)
             {
-                transform.position = track.EvaluatePosition(currentTrackDistance, false);
                 Vector3 initialTangent = track.SampleLookAheadTangent(currentTrackDistance, track.lookAheadDistance, false);
                 if (initialTangent.sqrMagnitude > 0.001f)
                 {
                     facingCurrentRot = Quaternion.LookRotation(initialTangent, Vector3.up);
                     transform.rotation = facingCurrentRot;
                 }
-                bodyLeanDeg = 0f;
-                bodyLeanVelocity = 0f;
-                bankingLean = 0f;
             }
+            else
+            {
+                facingCurrentRot = transform.rotation;
+            }
+            ResetLean();
         }
 
         /// <summary>
@@ -82,278 +116,102 @@ namespace WhoGetInBus.GamePlay
             EnterTrack(dist);
         }
 
-        private void Update()
+        public void ResetLean()
         {
-            UpdateBounce();
-
-            if (!isInLoop || isMerging || LoopTrackSystem.Instance == null) return;
-
-            MoveAlongTrack();
-
-            CheckAndAbsorbPassengersAlongTrack();
+            bodyLeanDeg = 0f;
+            bodyLeanVelocity = 0f;
+            bankingLean = 0f;
         }
 
-        #region DI CHUYỂN BÁM TIM ĐƯỜNG RAY (ARC-LENGTH TRACK FOLLOWING)
-
-        private void MoveAlongTrack()
+        private void Update()
         {
-            var track = LoopTrackSystem.Instance;
-            if (track == null) return;
+            // Di chuyển & ăn cát do LoopTrackSystem điều phối tập trung
+            UpdateBounce();
+        }
 
-            // 1. Tính toán vận tốc hiệu dụng (tự động hãm phanh nếu xe phía trước quá gần)
-            float effectiveSpeed = ComputeEffectiveSpeed(track);
-            float moveDist = effectiveSpeed * Time.deltaTime;
+        #region ÁP DỤNG VỊ TRÍ & HƯỚNG (Cocos applyCursorWorldTransform)
 
-            // 2. Nếu xe đã đầy khách: kiểm tra ngã rẽ lối thoát (Exit Junction)
-            if (isPendingExit && !isExiting)
+        /// <summary>
+        /// Áp dụng vị trí chuẩn 100% tim đường, xoay đầu xe mượt mà + nghiêng thân xe ôm cua.
+        /// instant = true: xoay ngay không nội suy (vừa nhập làn / vừa rẽ sang làn thoát).
+        /// </summary>
+        public void ApplyTrackTransform(LoopTrackSystem track, float dt, bool instant)
+        {
+            Vector3 pos = track.EvaluatePosition(currentTrackDistance, isExiting);
+            transform.position = pos;
+
+            if (!isExiting) currentWaypointIdx = track.FindClosestWaypointIndex(pos);
+
+            Vector3 heading = track.SampleLookAheadTangent(currentTrackDistance, track.lookAheadDistance, isExiting);
+            if (heading.sqrMagnitude <= 0.001f) return;
+
+            Quaternion targetRot = Quaternion.LookRotation(heading, Vector3.up);
+            if (instant || dt <= 0f || track.rotateSpeed <= 0f)
             {
-                float distToJunction = track.NormalizeLoopDistance(currentTrackDistance - track.exitJunctionDistance);
-                distToJunction = Mathf.Min(distToJunction, track.loopTotalLen - distToJunction);
-
-                bool crossingThisFrame = distToJunction < 0.35f;
-
-                if (crossingThisFrame && track.IsExitLaneClear(track.followGapDistance))
-                {
-                    isExiting = true;
-                    currentTrackDistance = 0f;
-                    bodyLeanDeg = 0f;
-                    bodyLeanVelocity = 0f;
-                    bankingLean = 0f;
-                    Vector3 exitTan = track.SampleLookAheadTangent(0f, track.lookAheadDistance, true);
-                    facingCurrentRot = Quaternion.LookRotation(exitTan, Vector3.up);
-                    transform.rotation = facingCurrentRot;
-                    return;
-                }
-            }
-
-            // 3. Tiến lên theo cung đường
-            if (isExiting)
-            {
-                currentTrackDistance += moveDist;
-                if (currentTrackDistance >= track.exitTotalLen)
-                {
-                    OnExitFinished();
-                    return;
-                }
-
-                Vector3 pos = track.EvaluatePosition(currentTrackDistance, true);
-                Vector3 heading = track.SampleLookAheadTangent(currentTrackDistance, track.lookAheadDistance, true);
-                ApplyTransform(track, pos, heading);
+                facingCurrentRot = targetRot;
             }
             else
             {
-                currentTrackDistance = track.NormalizeLoopDistance(currentTrackDistance + moveDist);
-                Vector3 pos = track.EvaluatePosition(currentTrackDistance, false);
-                Vector3 heading = track.SampleLookAheadTangent(currentTrackDistance, track.lookAheadDistance, false);
-                ApplyTransform(track, pos, heading);
-
-                // Giữ currentWaypointIdx đồng bộ cho Inspector và tiện ích
-                currentWaypointIdx = track.FindClosestWaypointIndex(pos);
-            }
-        }
-
-        /// <summary>
-        /// Áp dụng vị trí chuẩn 100% tim đường và xoay đầu xe mượt mà + nghiêng thân xe ôm cua
-        /// </summary>
-        private void ApplyTransform(LoopTrackSystem track, Vector3 pos, Vector3 heading)
-        {
-            transform.position = pos;
-
-            if (heading.sqrMagnitude > 0.001f)
-            {
-                Quaternion targetRot = Quaternion.LookRotation(heading, Vector3.up);
-                float factor = 1f - Mathf.Exp(-track.rotateSpeed * Time.deltaTime);
+                float factor = 1f - Mathf.Exp(-track.rotateSpeed * dt);
                 facingCurrentRot = Quaternion.Slerp(facingCurrentRot, targetRot, factor);
+            }
 
-                // Vật lý nghiêng thân xe (Spring-Damper Banking Lean chuẩn Cocos 1:1)
-                float targetLean = track.GetTurnLeanTargetDeg(facingCurrentRot * Vector3.forward, heading);
-                float dtClamped = Mathf.Min(Time.deltaTime, 0.05f);
+            // Vật lý nghiêng thân xe (Spring-Damper Banking Lean chuẩn Cocos 1:1)
+            float targetLean = track.GetTurnLeanTargetDeg(currentTrackDistance, isExiting);
+            if (instant || dt <= 0f)
+            {
+                bodyLeanDeg = targetLean;
+                bodyLeanVelocity = 0f;
+            }
+            else
+            {
+                float dtClamped = Mathf.Min(dt, 0.05f);
                 float accel = 85f * (targetLean - bodyLeanDeg) - 10f * bodyLeanVelocity;
                 bodyLeanVelocity += accel * dtClamped;
                 bodyLeanDeg += bodyLeanVelocity * dtClamped;
-                bodyLeanDeg = Mathf.Clamp(bodyLeanDeg, -track.maxBankingLean, track.maxBankingLean);
-                bankingLean = bodyLeanDeg;
 
-                transform.rotation = facingCurrentRot * Quaternion.Euler(0f, 0f, bodyLeanDeg);
-            }
-        }
-
-        /// <summary>
-        /// Tính toán tốc độ an toàn giữ khoảng cách chống đâm xe phía trước
-        /// </summary>
-        private float ComputeEffectiveSpeed(LoopTrackSystem track)
-        {
-            if (isMerging) return currentSpeed;
-
-            float gapDist = track.followGapDistance;
-            if (gapDist <= 0f) return currentSpeed;
-
-            float speed = currentSpeed;
-
-            // Tăng tốc khi chạy ở cung đường vòng ngoài (xa vùng tranh cát) để giảm thời gian chờ
-            if (!isExiting && !track.IsBoardingZone(currentTrackDistance))
-            {
-                speed *= 1.35f;
-            }
-
-            if (!isExiting)
-            {
-                foreach (var other in track.activeCarsOnTrack)
+                float maxLean = track.maxBankingLean;
+                if (bodyLeanDeg > maxLean)
                 {
-                    if (other == null || other == this || !other.isInLoop || other.isMerging || other.isExiting) continue;
-
-                    float forwardDist = track.GetForwardLoopDistance(this.currentTrackDistance, other.currentTrackDistance);
-                    if (forwardDist < gapDist)
-                    {
-                        if (forwardDist < 0.6f) return 0f; // Dừng hẳn nếu quá gần
-                        float ratio = Mathf.Clamp01((forwardDist - 0.6f) / (gapDist - 0.6f));
-                        speed = Mathf.Min(speed, currentSpeed * ratio);
-                    }
+                    bodyLeanDeg = maxLean;
+                    bodyLeanVelocity = Mathf.Min(0f, bodyLeanVelocity);
+                }
+                else if (bodyLeanDeg < -maxLean)
+                {
+                    bodyLeanDeg = -maxLean;
+                    bodyLeanVelocity = Mathf.Max(0f, bodyLeanVelocity);
                 }
             }
-            else
-            {
-                foreach (var other in track.activeCarsOnTrack)
-                {
-                    if (other == null || other == this || !other.isInLoop || other.isMerging || !other.isExiting) continue;
+            bankingLean = bodyLeanDeg;
 
-                    if (other.currentTrackDistance > this.currentTrackDistance)
-                    {
-                        float dist = other.currentTrackDistance - this.currentTrackDistance;
-                        if (dist < gapDist)
-                        {
-                            if (dist < 0.6f) return 0f;
-                            float ratio = Mathf.Clamp01((dist - 0.6f) / (gapDist - 0.6f));
-                            speed = Mathf.Min(speed, currentSpeed * ratio);
-                        }
-                    }
-                }
-            }
-
-            return speed;
+            transform.rotation = facingCurrentRot * Quaternion.Euler(0f, 0f, bodyLeanDeg);
         }
 
         #endregion
 
-        #region ĐÓN KHÁCH THEO ĐÀN (BATCH ABSORB & PARABOLA FLIGHT)
+        #region NHẬN KHÁCH (Cocos onAbsorbSandArrive / onBucketFilled)
 
-        private void CheckAndAbsorbPassengersAlongTrack()
+        /// <summary>
+        /// Khách bay tới nơi: trừ ghế, cộng vào số khách của vòng, và nếu xe đã đầy thì chuẩn bị rẽ ra làn thoát.
+        /// </summary>
+        public override void OnBoardingArrive(int count)
         {
-            if (Time.time < nextAbsorbCheckTime) return;
-            if (currentSeats <= 0 || isPendingExit || isExiting || isMerging) return;
-            if (LoopTrackSystem.Instance == null || SandBoardManager.Instance == null) return;
+            base.OnBoardingArrive(count);
 
-            // Chỉ quét khi xe chạy trong vùng đón khách tiếp giáp chân tranh cát
-            if (!LoopTrackSystem.Instance.IsBoardingZone(currentTrackDistance)) return;
+            var track = LoopTrackSystem.Instance;
+            if (track != null) track.AddLapPassengerCount(this, count);
 
-            int seatsAvailable = currentSeats - inFlightPassengersCount;
-            if (seatsAvailable <= 0) return;
-
-            // Giới hạn số lượng hạt đang bay tối đa (24 hạt) để đảm bảo FPS ổn định và luồng cát mượt mà
-            int maxFlightCapacity = 24 - inFlightPassengersCount;
-            if (maxFlightCapacity <= 0) return;
-
-            // Hút theo đàn (Batch Absorb): trích xuất 8 - 12 hạt một lần quét (chuẩn minibus_tran / bus_tran trong Cocos)
-            int batchTargetCap = isExtraCar ? 12 : 8;
-            int maxCanTake = Mathf.Clamp(seatsAvailable, 1, Mathf.Min(batchTargetCap, maxFlightCapacity));
-            var batch = SandBoardManager.Instance.TryExtractPassengerBatchNearCar(this, transform.position, absorbCheckRadius, maxCanTake);
-
-            if (batch != null && batch.Count > 0)
-            {
-                nextAbsorbCheckTime = Time.time + absorbInterval;
-                inFlightPassengersCount += batch.Count;
-
-                for (int i = 0; i < batch.Count; i++)
-                {
-                    var item = batch[i];
-                    // Độ trễ so le rất nhanh (25ms) tạo thành chuỗi hạt bay liên tiếp như dòng nước/thác cát
-                    float staggerDelay = i * 0.025f;
-
-                    // Tính độ lệch cánh cung theo hướng ngang (Perpendicular Spread) tạo hiệu ứng luồng phun chuẩn Cocos h=[0, -0.55, 0.55, -1, 1, -0.3, 0.3]
-                    Vector3 travelDir = (transform.position - item.worldPos);
-                    travelDir.y = 0f;
-                    Vector3 perp = Vector3.Cross(travelDir.normalized, Vector3.up);
-                    float[] laneOffsets = new float[] { 0f, -0.55f, 0.55f, -1.0f, 1.0f, -0.3f, 0.3f };
-                    float spreadFactor = laneOffsets[i % laneOffsets.Length] * 0.15f;
-                    Vector3 laneOffset = perp * spreadFactor;
-
-                    StartCoroutine(FlyPassengerParabolaRoutine(item.worldPos, staggerDelay, laneOffset));
-                }
-            }
+            CheckFilled(track);
         }
 
-        private IEnumerator FlyPassengerParabolaRoutine(Vector3 startPos, float startDelay, Vector3 laneOffset)
+        private void CheckFilled(LoopTrackSystem track)
         {
-            if (startDelay > 0f)
-            {
-                yield return new WaitForSeconds(startDelay);
-            }
+            if (isPendingExit || isExiting) return;
+            if (currentSeats > 0 || inFlightSandCount > 0) return;
+            if (track != null && track.HasPendingBoarding(this)) return;
 
-            GameObject actor = null;
-            var prefabData = LoopTrackSystem.Instance != null ? LoopTrackSystem.Instance.prefabData : null;
-            if (prefabData != null && prefabData.passengerPrefab != null)
-            {
-                actor = Instantiate(prefabData.passengerPrefab, startPos, Quaternion.identity);
-            }
-            else
-            {
-                actor = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                actor.transform.position = startPos;
-                actor.transform.localScale = Vector3.one * 0.35f;
-                var col = actor.GetComponent<Collider>();
-                if (col != null) Destroy(col);
-            }
-
-            if (actor != null && SandBoardManager.Instance != null)
-            {
-                var sr = actor.GetComponentInChildren<SpriteRenderer>();
-                if (sr != null)
-                {
-                    // Giữ nguyên material gốc của SpriteRenderer từ prefab, chỉ cập nhật sprite theo màu xe nếu có
-                    if (SandBoardManager.Instance.passengerColors != null &&
-                        SandBoardManager.Instance.passengerColors.data.TryGetValue(carColor, out Sprite sprite))
-                    {
-                        sr.sprite = sprite;
-                    }
-                }
-                else
-                {
-                    // Fallback chỉ dành cho Primitive Sphere (nếu không có SpriteRenderer)
-                    var meshRend = actor.GetComponentInChildren<MeshRenderer>();
-                    if (meshRend != null)
-                    {
-                        meshRend.material.color = SandBoardManager.Instance.GetPaletteColor((int)carColor);
-                    }
-                }
-            }
-
-            float elapsed = 0f;
-            while (elapsed < flightDuration)
-            {
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / flightDuration);
-
-                // Điểm đích linh hoạt bám sát nóc xe buýt khi xe đang di chuyển
-                Vector3 targetRoofPos = transform.position + Vector3.up * 0.85f;
-                Vector3 pos = Vector3.Lerp(startPos, targetRoofPos, t);
-                pos.y += 4f * arcPeakHeight * t * (1f - t);
-                pos += laneOffset * Mathf.Sin(t * Mathf.PI);
-
-                if (actor != null) actor.transform.position = pos;
-                yield return null;
-            }
-
-            if (actor != null) Destroy(actor);
-
-            // Khi hành khách tiếp đất vào nóc xe
-            inFlightPassengersCount = Mathf.Max(0, inFlightPassengersCount - 1);
-            AbsorbPassenger();
-
-            // Nếu xe đã hết sạch chỗ -> Đánh dấu chuẩn bị rẽ sang làn thoát
-            if (currentSeats <= 0 && !isPendingExit)
-            {
-                isPendingExit = true;
-            }
+            if (track != null) track.MarkCartPendingExit(this);
+            else isPendingExit = true;
         }
 
         #endregion
@@ -361,7 +219,7 @@ namespace WhoGetInBus.GamePlay
         /// <summary>
         /// Xe đã hoàn thành chặng đường và chạy ra khỏi màn hình
         /// </summary>
-        private void OnExitFinished()
+        public void FinishExit()
         {
             isInLoop = false;
             isExiting = false;
