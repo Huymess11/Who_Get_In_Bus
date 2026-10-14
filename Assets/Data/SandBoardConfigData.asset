@@ -14,13 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: WhoGetInBus.Data:SandBoardConfigData
   boardPosition: {x: 0, y: 16}
   beadSize: {x: 34, y: 44}
-  beadScale: 1
+  beadScale: 1.1
   beadSpacingX: 27
-  beadSpacingY: 24.32
+  beadSpacingY: 25
   enableZigzag: 1
   zigzagOffset: 12.16
   boardOffsetX: 0
-  boardOffsetY: 0
+  boardOffsetY: -21
   collapseDuration: 0.12
   columns: 40
   rows: 40

@@ -1346,8 +1346,8 @@ namespace WhoGetInBus.EditorTools
             RectTransform rt = boardMgr.GetComponent<RectTransform>();
             if (rt == null) rt = boardMgr.gameObject.AddComponent<RectTransform>();
             Transform topTransform = mapCanvas != null ? mapCanvas.transform.Find("Top") : null;
-            Vector2 targetPos = new Vector2(0f, -180f);
-            if (topTransform != null && topTransform is RectTransform topRt) targetPos = topRt.anchoredPosition;
+            Vector2 targetPos = new Vector2(0f, 16f);
+            if (topTransform != null && topTransform is RectTransform topRt) targetPos = new Vector2(topRt.anchoredPosition.x, topRt.anchoredPosition.y + 166f);
 
             rt.anchorMin = new Vector2(0.5f, 0.5f);
             rt.anchorMax = new Vector2(0.5f, 0.5f);

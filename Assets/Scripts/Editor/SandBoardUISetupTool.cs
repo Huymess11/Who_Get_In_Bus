@@ -83,12 +83,12 @@ namespace WhoGetInBus.EditorTools
             RectTransform rt = boardObj.GetComponent<RectTransform>();
             if (rt == null) rt = boardObj.AddComponent<RectTransform>();
 
-            // Tìm vị trí của Top để khớp chân đường
+            // Tìm vị trí của Top để khớp chân đường (Chuẩn Cocos: Đáy SandBoard cao hơn đáy roadTop đúng 114px Cocos -> 166px Unity)
             Transform topTransform = mapCanvas.transform.Find("Top");
-            Vector2 targetPos = new Vector2(0f, -180f);
+            Vector2 targetPos = new Vector2(0f, 16f);
             if (topTransform != null && topTransform is RectTransform topRt)
             {
-                targetPos = topRt.anchoredPosition;
+                targetPos = new Vector2(topRt.anchoredPosition.x, topRt.anchoredPosition.y + 166f);
             }
 
             rt.anchorMin = new Vector2(0.5f, 0.5f);
@@ -99,9 +99,8 @@ namespace WhoGetInBus.EditorTools
             rt.localScale = Vector3.one;
             rt.localRotation = Quaternion.identity;
 
-            // Xếp thứ tự hierarchy: hiển thị ngay trên Top để không bị ảnh nền mặt đường của Top che khuất
-            int topIdx = topTransform != null ? topTransform.GetSiblingIndex() : 3;
-            boardObj.transform.SetSiblingIndex(topIdx + 1);
+            // Xếp thứ tự hierarchy: con thứ 1 (ngay sau bg) để Top và Bottom che phủ viền hạt cát chuẩn game gốc
+            boardObj.transform.SetSiblingIndex(1);
 
             // 5. Gắn các Component cần thiết
             CanvasRenderer cr = boardObj.GetComponent<CanvasRenderer>();

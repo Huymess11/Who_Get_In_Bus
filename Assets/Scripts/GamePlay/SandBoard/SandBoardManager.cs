@@ -184,6 +184,11 @@ namespace WhoGetInBus.GamePlay
             EnsureConfigLoaded();
             EnsureAtlasLoaded();
 
+            if (transform.parent != null && transform.parent.childCount > 1 && transform.GetSiblingIndex() != 1)
+            {
+                transform.SetSiblingIndex(1);
+            }
+
             if (beadColorIndices == null || totalRemainingBeads == 0)
             {
                 int[,] pixelData = GetOrLoadPixelData();
@@ -1063,6 +1068,10 @@ namespace WhoGetInBus.GamePlay
             BuildBoard(pixelData, passengerColors, beadMaterial);
 
 #if UNITY_EDITOR
+            if (transform.parent != null && transform.parent.childCount > 1 && transform.GetSiblingIndex() != 1)
+            {
+                transform.SetSiblingIndex(1);
+            }
             EditorUtility.SetDirty(gameObject);
 #endif
         }
