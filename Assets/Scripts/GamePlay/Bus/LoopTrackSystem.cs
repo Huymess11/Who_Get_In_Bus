@@ -1590,9 +1590,11 @@ namespace WhoGetInBus.GamePlay
                 && activeCarsOnTrack.Contains(car);
         }
 
+        /// <summary>Cocos: isConnectionElementType — xe nối là loại 101..199 (giá trị thứ 3 trong chuỗi xe "màu_ghế_loại").</summary>
         private static bool IsConnectionMechanic(CarMechanicType type)
         {
-            return type == CarMechanicType.Linked || type == CarMechanicType.LinkedVariant;
+            int t = (int)type;
+            return t > 100 && t < 200;
         }
 
         /// <summary>
