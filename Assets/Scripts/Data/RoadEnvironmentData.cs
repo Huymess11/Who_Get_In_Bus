@@ -66,12 +66,29 @@ namespace WhoGetInBus.Data
         /// </summary>
         public Sprite GetTopRoad(int roadId)
         {
-            if (topRoads != null && topRoads.TryGetValue(roadId, out Sprite sp))
+            if (topRoads != null && topRoads.TryGetValue(roadId, out Sprite sp) && sp != null)
             {
                 return sp;
             }
+
+            // Một số đường trong game gốc dùng ảnh mang tên khác (road 22 = roadTop21_5_xx, nằm trong extraOverlays do khớp mẫu tên lớp phụ)
+            if (TopRoadAlias.TryGetValue(roadId, out string alias) && extraOverlays != null)
+            {
+                foreach (var kv in extraOverlays)
+                {
+                    string key = kv.Key;
+                    if (kv.Value == null || string.IsNullOrEmpty(key)) continue;
+                    if (key == alias || (key.Length == alias.Length + 3 && key.StartsWith(alias + "_0"))) return kv.Value;
+                }
+            }
             return null;
         }
+
+        /// <summary>Road ID → tên gốc ảnh Top khi không theo mẫu roadTop{id} (Cocos: prefab road/{bgStyle}/roadTop22 dùng frame roadTop21_5_xx).</summary>
+        private static readonly Dictionary<int, string> TopRoadAlias = new Dictionary<int, string>
+        {
+            { 22, "roadTop21_5" },
+        };
 
         /// <summary>
         /// Lấy Sprite đường trên theo Enum RoadTopType

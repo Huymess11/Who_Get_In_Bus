@@ -2914,7 +2914,9 @@ MonoBehaviour:
   TopBanner: {fileID: 1353847811}
   BG: {fileID: 1732554065}
   BottomBar: {fileID: 1739630422}
-  keepTopRoadProportion: 0
+  matchOriginalTopRoadHeight: 1
+  topRoadPixelScaleY: 1.3059702
+  matchOriginalOverlayLayout: 1
 --- !u!4 &1471711543
 Transform:
   m_ObjectHideFlags: 0

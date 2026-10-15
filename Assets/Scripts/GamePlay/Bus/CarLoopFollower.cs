@@ -212,6 +212,9 @@ namespace WhoGetInBus.GamePlay
 
             if (track != null) track.MarkCartPendingExit(this);
             else isPendingExit = true;
+
+            // Cocos onBucketFilled → prepareBucketFilledState → setCompleteState: ẩn số ghế, hiện dấu tick
+            PlayCompleteState();
         }
 
         #endregion

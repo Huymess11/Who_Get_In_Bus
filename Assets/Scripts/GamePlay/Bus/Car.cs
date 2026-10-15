@@ -50,10 +50,32 @@ namespace WhoGetInBus.GamePlay
         protected Vector3 originalScale;
         protected float bounceTimer = 0f;
 
+        [Header("Xe Đã Đủ Khách (Cocos: Bucket.setCompleteState)")]
+        [Tooltip("Dấu tick hiện thay số ghế khi xe đủ khách. Đặt cùng chỗ với số ghế (vd. con của Canvas trên nóc xe), KHÔNG đặt làm con của Text số ghế vì Text sẽ bị tắt")]
+        public GameObject TickObject;
+        [Tooltip("Thời gian số ghế thu nhỏ biến mất (giây)")]
+        public float completeCountHideDuration = 0.12f;
+        [Tooltip("Thời gian dấu tick bật ra (giây)")]
+        public float completeTickPopDuration = 0.25f;
+
+        /// <summary>Đã chuyển sang trạng thái đủ khách (đã ẩn số ghế, hiện dấu tick).</summary>
+        public bool IsCompleteShown { get; private set; }
+        private Coroutine completeCoroutine;
+        private Vector3 seatTextBaseScale = Vector3.one;
+        private Vector3 tickBaseScale = Vector3.one;
+        private bool visualVisible = true;
+
         protected virtual void Awake()
         {
             originalScale = transform.localScale;
             CacheComponents();
+            if (seatText != null) seatTextBaseScale = seatText.transform.localScale;
+            if (TickObject != null)
+            {
+                tickBaseScale = TickObject.transform.localScale;
+                if (tickBaseScale.sqrMagnitude < 1e-6f) tickBaseScale = Vector3.one;
+                TickObject.SetActive(false);
+            }
         }
 
         /// <summary>
@@ -112,6 +134,12 @@ namespace WhoGetInBus.GamePlay
             {
                 canvasTransform.rotation = targetBillboardRot;
             }
+
+            // Dấu tick cũng luôn quay về camera như số ghế
+            if (TickObject != null && TickObject.activeSelf)
+            {
+                TickObject.transform.rotation = targetBillboardRot;
+            }
         }
 
         /// <summary>
@@ -130,8 +158,106 @@ namespace WhoGetInBus.GamePlay
             isThreeInOneLocked = false;
             inFlightSandCount = 0;
 
+            ResetCompleteState();
             UpdateVisuals();
         }
+
+        #region XE ĐỦ KHÁCH: ẨN SỐ GHẾ → HIỆN DẤU TICK
+
+        /// <summary>
+        /// Xe đủ khách: số ghế thu nhỏ biến mất rồi dấu tick bật ra (Cocos: setCompleteState = ẩn quantityLabel, hiện completeNode).
+        /// </summary>
+        public void PlayCompleteState()
+        {
+            if (IsCompleteShown) return;
+            IsCompleteShown = true;
+
+            if (completeCoroutine != null) StopCoroutine(completeCoroutine);
+
+            // Bật tick lên trước (đang tắt sẵn trong prefab) ở kích thước 0, rồi mới diễn bật ra
+            if (TickObject != null)
+            {
+                TickObject.transform.localScale = Vector3.zero;
+                TickObject.SetActive(visualVisible);
+            }
+
+            if (isActiveAndEnabled)
+            {
+                completeCoroutine = StartCoroutine(CompleteStateRoutine());
+            }
+            else
+            {
+                HideSeatCount();
+                if (TickObject != null) TickObject.transform.localScale = tickBaseScale;
+            }
+        }
+
+        private IEnumerator CompleteStateRoutine()
+        {
+            // 1. Số ghế thu nhỏ về 0 (ease-in) rồi tắt chữ
+            if (seatText != null && seatText.enabled)
+            {
+                var tr = seatText.transform;
+                float t = 0f, dur = Mathf.Max(0.01f, completeCountHideDuration);
+                while (t < dur)
+                {
+                    t += Time.deltaTime;
+                    float k = Mathf.Clamp01(t / dur);
+                    tr.localScale = seatTextBaseScale * (1f - k * k);
+                    yield return null;
+                }
+            }
+            HideSeatCount();
+
+            // 2. Dấu tick bật ra 0 → vượt 1 → 1 (backOut)
+            if (TickObject != null)
+            {
+                var tr = TickObject.transform;
+                float t = 0f, dur = Mathf.Max(0.01f, completeTickPopDuration);
+                while (t < dur)
+                {
+                    t += Time.deltaTime;
+                    float k = Mathf.Clamp01(t / dur) - 1f;
+                    const float s = 1.70158f;
+                    tr.localScale = tickBaseScale * (k * k * ((s + 1f) * k + s) + 1f);
+                    yield return null;
+                }
+                tr.localScale = tickBaseScale;
+            }
+            completeCoroutine = null;
+        }
+
+        /// <summary>Tắt chữ số ghế (chỉ tắt component, không tắt GameObject để tick đặt làm con của Text vẫn hiện được).</summary>
+        private void HideSeatCount()
+        {
+            if (seatText == null) return;
+            seatText.transform.localScale = seatTextBaseScale;
+            seatText.enabled = false;
+        }
+
+        /// <summary>Trả về trạng thái chưa đủ khách: hiện số ghế, ẩn dấu tick.</summary>
+        public void ResetCompleteState()
+        {
+            IsCompleteShown = false;
+            if (completeCoroutine != null)
+            {
+                StopCoroutine(completeCoroutine);
+                completeCoroutine = null;
+            }
+            if (seatText != null)
+            {
+                seatText.transform.localScale = seatTextBaseScale;
+                seatText.gameObject.SetActive(true);
+                seatText.enabled = visualVisible;
+            }
+            if (TickObject != null)
+            {
+                TickObject.transform.localScale = tickBaseScale;
+                TickObject.SetActive(false);
+            }
+        }
+
+        #endregion
 
         public virtual void InitializeCar(GameColorType color, int seats, int mechanic, BusColorData colors)
         {
@@ -236,8 +362,12 @@ namespace WhoGetInBus.GamePlay
             if (bodyCollider == null) bodyCollider = GetComponent<Collider>();
 
             for (int i = 0; i < visualRenderers.Length; i++) visualRenderers[i].enabled = visible;
-            if (seatText != null) seatText.enabled = visible;
+            if (seatText != null) seatText.enabled = visible && !IsCompleteShown; // xe đã đủ khách thì số ghế giữ tắt
             if (bodyCollider != null) bodyCollider.enabled = visible;
+
+            // Dấu tick (thường là UI Image, không phải Renderer) cũng ẩn theo khi xe chui hầm
+            visualVisible = visible;
+            if (TickObject != null && IsCompleteShown) TickObject.SetActive(visible);
         }
 
         private Renderer[] visualRenderers;
