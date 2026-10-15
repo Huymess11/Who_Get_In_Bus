@@ -181,6 +181,10 @@ namespace WhoGetInBus.GamePlay
         private readonly List<SandBoardManager.PassengerAbsorbItem> absorbItems = new List<SandBoardManager.PassengerAbsorbItem>(32);
         private readonly List<Vector3> absorbPoints = new List<Vector3>(32);
         private readonly Dictionary<CarLoopFollower, CartDeployReservation> deployReservations = new Dictionary<CarLoopFollower, CartDeployReservation>();
+        private readonly HashSet<CarLoopFollower> mergingTails = new HashSet<CarLoopFollower>();
+        private readonly List<CarLoopFollower> mergeScratch = new List<CarLoopFollower>();
+        private bool mergingThreeInOne;
+        private Coroutine mergeCoroutine;
 
         public float MoveSpeed => moveSpeed;
 
@@ -210,6 +214,56 @@ namespace WhoGetInBus.GamePlay
         public float BlockedDeployMoveSpeed => MaxMoveSpeed * Mathf.Max(0f, blockedWaitingSpeedRatio);
 
         public bool PathReady => loopPathPoints != null && loopPathPoints.Count >= 2 && loopSegLens != null && loopSegLens.Length > 0 && loopTotalLen > 0f;
+
+        /// <summary>Không còn xe nào đang chạy hoặc đang lao ra đường (dùng để xét thắng màn).</summary>
+        public bool IsTrackEmpty => activeCarsOnTrack.Count == 0 && deployReservations.Count == 0 && mergingTails.Count == 0 && !mergingThreeInOne;
+
+        /// <summary>Số xe tối đa được chạy trên đường cùng lúc (Cocos: deployableCartCount = level.iniCapacity).</summary>
+        public int DeployableCartCount => currentLevel != null && currentLevel.iniCapacity > 0 ? currentLevel.iniCapacity : 4;
+
+        /// <summary>
+        /// Số xe đang chiếm chỗ trên đường (Cocos: _curSelectCount): xe đang lao ra, đang chạy chưa đầy, xe đang bay vào gộp.
+        /// Xe đã đầy (chờ rẽ ra / đang thoát) KHÔNG chiếm chỗ — Cocos removeSelected ngay khi xe đầy.
+        /// </summary>
+        public int SelectedCartCount
+        {
+            get
+            {
+                int n = deployReservations.Count + mergingTails.Count;
+                for (int i = 0; i < activeCarsOnTrack.Count; i++)
+                {
+                    var car = activeCarsOnTrack[i];
+                    if (car != null && !car.isPendingExit && !car.isExiting && !deployReservations.ContainsKey(car)) n++;
+                }
+                return n;
+            }
+        }
+
+        /// <summary>Còn chỗ cho 1 xe nữa xuất bến không (Cocos: select → deployableCartCount <= _curSelectCount thì từ chối).</summary>
+        public bool HasFreeDeploySlot => SelectedCartCount < DeployableCartCount;
+
+        /// <summary>Số hạt còn lại (bàn + hàng đợi) của 1 màu (Cocos: targetController.getRemainingCount).</summary>
+        public int GetRemainingSandOfColor(GameColorType color) => sandBoard != null ? sandBoard.GetRemainingCountOfColor(color) : 0;
+
+        /// <summary>Tổng nhu cầu thực (ghế trống trừ khách đang bay) của các xe 1 màu đang ở trên đường / đang lao ra / đang gộp.</summary>
+        public int SumRealDemandOfColor(GameColorType color)
+        {
+            int n = 0;
+            for (int i = 0; i < activeCarsOnTrack.Count; i++)
+            {
+                var car = activeCarsOnTrack[i];
+                if (car != null && car.carColor == color) n += car.RealDemand;
+            }
+            foreach (var car in deployReservations.Keys)
+            {
+                if (car != null && car.carColor == color && !activeCarsOnTrack.Contains(car)) n += car.RealDemand;
+            }
+            foreach (var car in mergingTails)
+            {
+                if (car != null && car.carColor == color) n += car.RealDemand;
+            }
+            return n;
+        }
 
         private void Awake()
         {
@@ -344,7 +398,6 @@ namespace WhoGetInBus.GamePlay
         {
             if (car == null) return;
             AddCarToTrack(car);
-            CheckAndMergeSameColorCars(car.carColor);
         }
 
         private void AddCarToTrack(CarLoopFollower car)
@@ -369,6 +422,10 @@ namespace WhoGetInBus.GamePlay
         /// <summary>Xoá toàn bộ xe/chỗ giữ khi nạp màn mới.</summary>
         public void ResetTrackRuntime()
         {
+            if (mergeCoroutine != null) StopCoroutine(mergeCoroutine);
+            mergeCoroutine = null;
+            mergingThreeInOne = false;
+            mergingTails.Clear();
             activeCarsOnTrack.Clear();
             deployReservations.Clear();
             absorbTimer = 0f;
@@ -1481,7 +1538,7 @@ namespace WhoGetInBus.GamePlay
         /// <summary>Cocos: tryCollectAbsorbForBucket. Trả về true nếu lượt quét này được tính vào ngân sách.</summary>
         private bool TryCollectAbsorbForCar(CarLoopFollower car, bool boardEmpty)
         {
-            if (car.isMerging) return false;
+            if (car.isMerging || car.isThreeInOneLocked) return false;
             if (car.RealDemand <= 0) return false;
             if (car.isLoopSkipAbsorb || car.isInCave) return false;
 
@@ -1510,121 +1567,268 @@ namespace WhoGetInBus.GamePlay
 
         #endregion
 
-        #region HỢP THỂ 3 XE CÙNG MÀU (Extra Car Merge)
+        #region HỢP THỂ 3 XE CÙNG MÀU (Cocos LevelController.checkAndMergeThreeInOne / mergeThreeInOne)
 
+        [Header("Gộp 3 Xe Cùng Màu (Cocos mergeThreeInOne)")]
+        [Tooltip("Thời gian 2 xe đuôi bay vào xe dẫn đầu (Cocos: moveToMovingWorldPos 0.3s backIn)")]
+        public float mergeFlyDuration = 0.3f;
+        [Tooltip("Thời gian xe gộp phóng to từ 0 (Cocos: playThreeInOneVfx 0.15s backOut)")]
+        public float mergeScaleInDuration = 0.15f;
+
+        /// <summary>
+        /// Cocos: isThreeInOneMergeReady — xe đã nhập làn xong (không còn lao ra), chưa đầy (realDemand > 0),
+        /// không phải xe nối (BucketConnection) và chưa bị khoá bởi lượt gộp khác. Xe gộp (Extra) vẫn được gộp tiếp.
+        /// </summary>
+        private bool IsThreeInOneMergeReady(CarLoopFollower car)
+        {
+            return car != null
+                && car.isInLoop && !car.isExiting && !car.isPendingExit
+                && !car.isMerging && !car.isThreeInOneLocked
+                && car.RealDemand > 0
+                && !IsConnectionMechanic(car.mechanicType)
+                && !deployReservations.ContainsKey(car)
+                && activeCarsOnTrack.Contains(car);
+        }
+
+        private static bool IsConnectionMechanic(CarMechanicType type)
+        {
+            return type == CarMechanicType.Linked || type == CarMechanicType.LinkedVariant;
+        }
+
+        /// <summary>
+        /// Cocos: checkAndMergeThreeInOne — gọi sau khi 1 xe nhập làn xong. Nếu đang gộp thì bỏ qua
+        /// (vòng lặp gộp đang chạy sẽ tự quét lại sau mỗi lần gộp).
+        /// </summary>
         public void CheckAndMergeSameColorCars(GameColorType color)
         {
-            List<CarLoopFollower> sameColorCars = new List<CarLoopFollower>();
-            foreach (var car in activeCarsOnTrack)
+            if (mergingThreeInOne || !Application.isPlaying) return;
+            if (!FindThreeInOneGroup(mergeScratch)) return;
+            mergeCoroutine = StartCoroutine(MergeThreeInOneLoop());
+        }
+
+        /// <summary>Gom các xe sẵn sàng theo màu (giữ thứ tự xuất bến), lấy 3 xe đầu của màu đầu tiên đủ 3.</summary>
+        private bool FindThreeInOneGroup(List<CarLoopFollower> result)
+        {
+            result.Clear();
+            for (int i = 0; i < activeCarsOnTrack.Count; i++)
             {
-                if (car != null && car.isInLoop && !car.isPendingExit && !car.isExiting && !car.isMerging && !car.isExtraCar && car.carColor == color)
+                var first = activeCarsOnTrack[i];
+                if (!IsThreeInOneMergeReady(first)) continue;
+
+                bool colorSeenBefore = false;
+                for (int k = 0; k < i; k++)
                 {
-                    sameColorCars.Add(car);
+                    var prev = activeCarsOnTrack[k];
+                    if (prev != null && prev.carColor == first.carColor && IsThreeInOneMergeReady(prev))
+                    {
+                        colorSeenBefore = true;
+                        break;
+                    }
+                }
+                if (colorSeenBefore) continue;
+
+                result.Add(first);
+                for (int j = i + 1; j < activeCarsOnTrack.Count && result.Count < 3; j++)
+                {
+                    var other = activeCarsOnTrack[j];
+                    if (other != null && other.carColor == first.carColor && IsThreeInOneMergeReady(other)) result.Add(other);
+                }
+                if (result.Count >= 3) return true;
+                result.Clear();
+            }
+            return false;
+        }
+
+        private System.Collections.IEnumerator MergeThreeInOneLoop()
+        {
+            mergingThreeInOne = true;
+            var group = new CarLoopFollower[3];
+            var tails = new List<CarLoopFollower>(2);
+            var tailStarts = new List<Vector3>(2);
+
+            try
+            {
+                while (FindThreeInOneGroup(mergeScratch))
+                {
+                    for (int i = 0; i < 3; i++) group[i] = mergeScratch[i];
+                    GameColorType color = group[0].carColor;
+
+                    // 1. Khách đang bay tới 3 xe đáp xuống ngay để số ghế còn lại chính xác (Cocos: forceArriveForBuckets)
+                    if (flightSystem != null)
+                    {
+                        for (int i = 0; i < 3; i++) flightSystem.ForceArrive(group[i]);
+                    }
+                    bool intact = true;
+                    for (int i = 0; i < 3; i++) intact &= IsThreeInOneMergeReady(group[i]);
+                    if (!intact) break;
+
+                    // 2. Khoá cả 3 xe: không hút cát nữa (Cocos: threeInOneLockSet)
+                    for (int i = 0; i < 3; i++) group[i].isThreeInOneLocked = true;
+
+                    // 3. Xe dẫn đầu = xe ở xa nhất phía trên màn hình (Cocos: worldPosition.z nhỏ nhất; trục z Unity ngược chiều Cocos)
+                    CarLoopFollower lead = group[0];
+                    for (int i = 1; i < 3; i++)
+                    {
+                        if (group[i].transform.position.z > lead.transform.position.z) lead = group[i];
+                    }
+
+                    // 4. 2 xe đuôi rời làn ngay (nhường chỗ cho xe phía sau) rồi bay vào xe dẫn đang chạy
+                    tails.Clear();
+                    tailStarts.Clear();
+                    for (int i = 0; i < 3; i++)
+                    {
+                        var car = group[i];
+                        if (car == lead) continue;
+                        activeCarsOnTrack.Remove(car);
+                        car.isMerging = true;
+                        mergingTails.Add(car);
+                        tails.Add(car);
+                        tailStarts.Add(car.transform.position);
+                    }
+
+                    Debug.Log($"<color=cyan>⚡ [GỘP XE]</color> 3 xe màu {color} trên đường → gộp thành xe 3-trong-1.");
+
+                    bool aborted = false;
+                    float elapsed = 0f;
+                    float duration = Mathf.Max(0.01f, mergeFlyDuration);
+                    while (elapsed < duration)
+                    {
+                        if (lead == null || !lead.isInLoop || lead.isExiting || !activeCarsOnTrack.Contains(lead))
+                        {
+                            aborted = true;
+                            break;
+                        }
+                        elapsed += Time.deltaTime;
+                        float k = BackIn(Mathf.Clamp01(elapsed / duration));
+                        Vector3 target = lead.transform.position;
+                        for (int i = 0; i < tails.Count; i++)
+                        {
+                            if (tails[i] != null) tails[i].transform.position = Vector3.LerpUnclamped(tailStarts[i], target, k);
+                        }
+                        yield return null;
+                    }
+
+                    if (!aborted)
+                    {
+                        for (int i = 0; i < tails.Count; i++) aborted |= tails[i] == null;
+                    }
+
+                    if (aborted)
+                    {
+                        RestoreThreeInOneAfterAbort(lead, tails);
+                        break;
+                    }
+
+                    // 5. Xe gộp: số ghế = tổng ghế còn lại của 3 xe, đặt đúng chỗ & hướng của xe dẫn đầu
+                    int seats = lead.currentSeats;
+                    for (int i = 0; i < tails.Count; i++) seats += tails[i].currentSeats;
+
+                    CarLoopFollower merged = SpawnThreeInOneCar(color, seats, lead);
+                    if (merged == null)
+                    {
+                        RestoreThreeInOneAfterAbort(lead, tails);
+                        break;
+                    }
+
+                    for (int i = 0; i < tails.Count; i++)
+                    {
+                        mergingTails.Remove(tails[i]);
+                        Destroy(tails[i].gameObject);
+                    }
+                    UnregisterCarFromTrack(lead);
+                    Destroy(lead.gameObject);
+
+                    AddCarToTrack(merged);
+                    merged.PlayMergeSuccessEffect();
+
+                    // 6. Phóng to từ 0 (backOut) — đợi xong rồi mới xét lượt gộp tiếp theo như Cocos
+                    Vector3 fullScale = merged.transform.localScale;
+                    float s = 0f;
+                    float scaleDuration = Mathf.Max(0.01f, mergeScaleInDuration);
+                    merged.transform.localScale = Vector3.zero;
+                    while (s < scaleDuration && merged != null)
+                    {
+                        s += Time.deltaTime;
+                        merged.transform.localScale = fullScale * BackOut(Mathf.Clamp01(s / scaleDuration));
+                        yield return null;
+                    }
+                    if (merged != null) merged.transform.localScale = fullScale;
                 }
             }
-
-            // ĐỦ 3 XE CÙNG MÀU TRÊN ĐƯỜNG -> GỘP THÀNH EXTRA CAR 2 TẦNG
-            if (sameColorCars.Count >= 3)
+            finally
             {
-                // Sắp xếp xe chạy trước nhất (theo track distance) là leadCar
-                sameColorCars.Sort((a, b) => b.currentTrackDistance.CompareTo(a.currentTrackDistance));
-                StartCoroutine(MergeThreeCarsRoutine(sameColorCars[0], sameColorCars[1], sameColorCars[2], color));
+                mergingThreeInOne = false;
+                mergeCoroutine = null;
             }
         }
 
-        private System.Collections.IEnumerator MergeThreeCarsRoutine(CarLoopFollower leadCar, CarLoopFollower tailCar1, CarLoopFollower tailCar2, GameColorType color)
+        /// <summary>Huỷ lượt gộp: trả 2 xe đuôi về làn tại vị trí hiện tại và mở khoá (Cocos: restoreThreeInOneMoversAfterAbort).</summary>
+        private void RestoreThreeInOneAfterAbort(CarLoopFollower lead, List<CarLoopFollower> tails)
         {
-            if (leadCar == null || tailCar1 == null || tailCar2 == null) yield break;
-
-            leadCar.isMerging = true;
-            tailCar1.isMerging = true;
-            tailCar2.isMerging = true;
-
-            Debug.Log($"<color=cyan>⚡ [GỘP XE]</color> Phát hiện 3 xe thường màu {color} trên đường! Bắt đầu gộp thành EXTRA CAR 2 tầng!");
-
-            Vector3 startP1 = tailCar1.transform.position;
-            Vector3 startP2 = tailCar2.transform.position;
-            Vector3 scale1 = tailCar1.transform.localScale;
-            Vector3 scale2 = tailCar2.transform.localScale;
-
-            float elapsed = 0f;
-            float duration = 0.45f;
-
-            while (elapsed < duration)
+            if (lead != null) lead.isThreeInOneLocked = false;
+            for (int i = 0; i < tails.Count; i++)
             {
-                elapsed += Time.deltaTime;
-                float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
-
-                if (tailCar1 != null && leadCar != null)
+                var car = tails[i];
+                mergingTails.Remove(car);
+                if (car == null) continue;
+                car.isThreeInOneLocked = false;
+                if (PathReady)
                 {
-                    tailCar1.transform.position = Vector3.Lerp(startP1, leadCar.transform.position, t);
-                    tailCar1.transform.localScale = Vector3.Lerp(scale1, scale1 * 0.3f, t);
+                    car.EnterTrack(FindClosestLoopDistance(car.transform.position), false);
+                    AddCarToTrack(car);
                 }
-                if (tailCar2 != null && leadCar != null)
+                else
                 {
-                    tailCar2.transform.position = Vector3.Lerp(startP2, leadCar.transform.position, t);
-                    tailCar2.transform.localScale = Vector3.Lerp(scale2, scale2 * 0.3f, t);
+                    car.isMerging = false;
                 }
-                yield return null;
             }
+        }
 
-            if (leadCar == null) yield break;
-
-            int combinedSeats = leadCar.currentSeats;
-            int combinedTotal = leadCar.totalSeats;
-            if (tailCar1 != null) { combinedSeats += tailCar1.currentSeats; combinedTotal += tailCar1.totalSeats; }
-            if (tailCar2 != null) { combinedSeats += tailCar2.currentSeats; combinedTotal += tailCar2.totalSeats; }
-
-            float trackDist = leadCar.currentTrackDistance;
-            Vector3 spawnPos = leadCar.transform.position;
-            Quaternion spawnRot = leadCar.transform.rotation;
-            CarMechanicType mech = leadCar.mechanicType;
-
-            if (tailCar1 != null)
-            {
-                UnregisterCarFromTrack(tailCar1);
-                Destroy(tailCar1.gameObject);
-            }
-            if (tailCar2 != null)
-            {
-                UnregisterCarFromTrack(tailCar2);
-                Destroy(tailCar2.gameObject);
-            }
-
-            UnregisterCarFromTrack(leadCar);
-            Destroy(leadCar.gameObject);
-
+        /// <summary>Cocos: getTrackByBucket — tạo xe 3-trong-1 (type DEFAULT, quantity = tổng ghế còn lại).</summary>
+        private CarLoopFollower SpawnThreeInOneCar(GameColorType color, int seats, CarLoopFollower lead)
+        {
             GameObject prefabToUse = extraCarPrefab;
             if (prefabToUse == null && prefabData != null) prefabToUse = prefabData.extraCarPrefab;
-
-            if (prefabToUse != null)
+            if (prefabToUse == null)
             {
-                GameObject extraObj = Instantiate(prefabToUse, spawnPos, spawnRot, transform);
-                extraObj.name = $"ExtraCar_Merged_{color}_{combinedSeats}c";
-
-                if (extraObj.GetComponent<Collider>() == null)
-                {
-                    var box = extraObj.AddComponent<BoxCollider>();
-                    box.size = new Vector3(1.8f, 2.4f, 3.2f);
-                    box.center = new Vector3(0, 1.2f, 0);
-                }
-
-                var follower = extraObj.GetComponent<CarLoopFollower>();
-                if (follower == null) follower = extraObj.AddComponent<CarLoopFollower>();
-
-                var colors = busColors;
-                if (colors == null && prefabData != null) colors = prefabData.busColors;
-
-                follower.InitializeCar(color, combinedSeats, mech, colors);
-                follower.totalSeats = combinedTotal;
-                follower.currentSeats = combinedSeats;
-                follower.isExtraCar = true;
-                follower.isMerging = false;
-                follower.EnterTrack(trackDist);
-
-                RegisterCarOnTrack(follower);
-                follower.PlayMergeSuccessEffect();
+                Debug.LogWarning("[LoopTrackSystem] Thiếu extraCarPrefab — không thể gộp 3 xe.");
+                return null;
             }
+
+            GameObject extraObj = Instantiate(prefabToUse, lead.transform.position, lead.transform.rotation, transform);
+            extraObj.name = $"ExtraCar_Merged_{color}_{seats}c";
+
+            if (extraObj.GetComponent<Collider>() == null)
+            {
+                var box = extraObj.AddComponent<BoxCollider>();
+                box.size = new Vector3(1.8f, 2.4f, 3.2f);
+                box.center = new Vector3(0, 1.2f, 0);
+            }
+
+            var follower = extraObj.GetComponent<CarLoopFollower>();
+            if (follower == null) follower = extraObj.AddComponent<CarLoopFollower>();
+
+            var colors = busColors;
+            if (colors == null && prefabData != null) colors = prefabData.busColors;
+
+            follower.InitializeCar(color, seats, CarMechanicType.Normal, colors);
+            follower.isExtraCar = true;
+            follower.EnterTrack(lead.currentTrackDistance, false);
+            return follower;
+        }
+
+        // Cocos/tween easing.backIn & backOut (s = 1.70158)
+        private static float BackIn(float k)
+        {
+            const float s = 1.70158f;
+            return k * k * ((s + 1f) * k - s);
+        }
+
+        private static float BackOut(float k)
+        {
+            const float s = 1.70158f;
+            k -= 1f;
+            return k * k * ((s + 1f) * k + s) + 1f;
         }
 
         #endregion

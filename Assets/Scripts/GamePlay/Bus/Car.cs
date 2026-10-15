@@ -22,7 +22,9 @@ namespace WhoGetInBus.GamePlay
         public bool isInLoop = false;
         public bool isPendingExit = false;
         public bool isExtraCar = false; // Xe buýt 2 tầng siêu cấp
-        public bool isMerging = false;  // Đang trong hiệu ứng gộp 3 xe
+        public bool isMerging = false;  // Xe đuôi đang bay vào xe dẫn đầu khi gộp 3 xe (đã rời làn)
+        [Tooltip("Xe đang tham gia gộp 3 (Cocos: threeInOneLockSet) — vẫn chạy trên làn nhưng không hút cát")]
+        public bool isThreeInOneLocked = false;
 
         [Header("Đón Khách (Cocos Bucket: inFlightSandCount / absorbChainCap)")]
         [Tooltip("Số khách đã bị hút khỏi bàn cát nhưng chưa bay tới xe (Cocos: inFlightSandCount)")]
@@ -124,6 +126,7 @@ namespace WhoGetInBus.GamePlay
             isInLoop = false;
             isPendingExit = false;
             isMerging = false;
+            isThreeInOneLocked = false;
             inFlightSandCount = 0;
 
             UpdateVisuals();
@@ -261,12 +264,10 @@ namespace WhoGetInBus.GamePlay
         }
 
         /// <summary>
-        /// Hiệu ứng hợp thể thành công thành xe 2 tầng Extra Car
+        /// Hiệu ứng hợp thể thành công thành xe 2 tầng Extra Car (phóng to từ 0 do LoopTrackSystem chạy — Cocos: playThreeInOneVfx)
         /// </summary>
         public virtual void PlayMergeSuccessEffect()
         {
-            bounceTimer = 0.5f;
-            transform.localScale = originalScale * 1.4f;
             Debug.Log($"<color=yellow>⭐ [HỢP THỂ THÀNH CÔNG]</color> Đã gộp 3 xe màu {carColor} thành EXTRA CAR 2 tầng với {currentSeats} chỗ!");
         }
 

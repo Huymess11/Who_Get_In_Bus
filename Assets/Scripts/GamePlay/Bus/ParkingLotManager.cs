@@ -108,6 +108,13 @@ namespace WhoGetInBus.GamePlay
         // Lưu trữ danh sách xe theo từng cột: column[c] chứa hàng đợi các xe từ trước ra sau
         private List<List<CarLoopFollower>> columnsOfCars = new List<List<CarLoopFollower>>();
 
+        /// <summary>
+        /// Số hàng xe được "sinh ra" ban đầu ở mỗi cột (Cocos: initPrimaryScreenEntity sinh 5 hàng, mỗi xe rời cột thì sinh bù 1 xe).
+        /// Unity tạo sẵn toàn bộ xe nhưng vẫn mô phỏng thời điểm sinh để chạy clampQuantityIfLastBucket đúng lúc như game gốc.
+        /// </summary>
+        private const int PrimaryRowsPerColumn = 5;
+        private readonly HashSet<CarLoopFollower> revealedCars = new HashSet<CarLoopFollower>();
+
         /// <summary>Bãi xe đã sinh xe cho màn hiện tại chưa.</summary>
         public bool HasLoaded { get; private set; }
 
@@ -247,6 +254,15 @@ namespace WhoGetInBus.GamePlay
                 columnsOfCars.Add(colList);
             }
 
+            // Cocos initPrimaryScreenEntity: sinh lần lượt theo hàng (hàng 0 của mọi cột, rồi hàng 1...), tối đa 5 hàng
+            for (int r = 0; r < PrimaryRowsPerColumn; r++)
+            {
+                for (int c = 0; c < columnsOfCars.Count; c++)
+                {
+                    if (r < columnsOfCars[c].Count) RevealCar(columnsOfCars[c][r]);
+                }
+            }
+
             HasLoaded = true;
             Debug.Log($"<color=green>[ParkingLotManager]</color> Đã sinh bãi đỗ {cols} cột xe thành công!");
         }
@@ -281,8 +297,65 @@ namespace WhoGetInBus.GamePlay
                 }
             }
             columnsOfCars.Clear();
+            revealedCars.Clear();
             HasLoaded = false;
         }
+
+        #region XE CUỐI CÙNG CỦA MÀU ĂN HẾT CÁT THỪA (Cocos LevelController.clampQuantityIfLastBucket)
+
+        /// <summary>Xe được "sinh ra" trên bãi (Cocos: placeColumnBucket) → kiểm tra có phải xe cuối cùng của màu đó không.</summary>
+        private void RevealCar(CarLoopFollower car)
+        {
+            if (car == null || !revealedCars.Add(car)) return;
+            ClampQuantityIfLastCar(car);
+        }
+
+        /// <summary>Mỗi xe rời cột thì sinh bù xe kế tiếp để cột luôn có đủ 5 hàng (Cocos: generateColumnRefillEntity).</summary>
+        private void RevealColumn(int colIndex)
+        {
+            if (colIndex < 0 || colIndex >= columnsOfCars.Count) return;
+            var colList = columnsOfCars[colIndex];
+            int n = Mathf.Min(PrimaryRowsPerColumn, colList.Count);
+            for (int r = 0; r < n; r++) RevealCar(colList[r]);
+        }
+
+        /// <summary>
+        /// Cocos: clampQuantityIfLastBucket — khi xe CUỐI CÙNG của 1 màu xuất hiện (không còn xe nào cùng màu chưa sinh),
+        /// số ghế của nó được nâng lên = số hạt còn lại của màu đó (bàn + hàng đợi) trừ đi nhu cầu thực của mọi xe cùng màu khác
+        /// (trên bãi, đang lao ra, đang chạy trên đường). Nhờ vậy cát thừa do dữ liệu lệch luôn được xe cuối ăn hết.
+        /// Chỉ nâng lên, không bao giờ giảm.
+        /// </summary>
+        private void ClampQuantityIfLastCar(CarLoopFollower car)
+        {
+            if (!Application.isPlaying) return;
+            var track = LoopTrackSystem.Instance;
+            if (track == null) return;
+
+            GameColorType color = car.carColor;
+            int otherDemand = 0;
+            for (int c = 0; c < columnsOfCars.Count; c++)
+            {
+                var colList = columnsOfCars[c];
+                for (int r = 0; r < colList.Count; r++)
+                {
+                    var other = colList[r];
+                    if (other == null || other == car || other.carColor != color) continue;
+                    if (!revealedCars.Contains(other)) return; // vẫn còn xe cùng màu chưa sinh → chưa phải xe cuối
+                    otherDemand += other.RealDemand;
+                }
+            }
+            otherDemand += track.SumRealDemandOfColor(color);
+
+            int need = Mathf.Max(0, track.GetRemainingSandOfColor(color) - otherDemand);
+            if (car.currentSeats >= need) return;
+
+            Debug.Log($"<color=orange>[ParkingLotManager]</color> Xe cuối màu {color} ({car.name}): nâng ghế {car.currentSeats} → {need} để ăn hết cát còn lại.");
+            car.totalSeats = need;
+            car.currentSeats = need;
+            car.UpdateVisuals();
+        }
+
+        #endregion
 
         /// <summary>
         /// Xử lý click vào xe: xe hàng đầu (r == 0) xuất bến, xe hàng sau (r > 0) rung lắc báo kẹt (Bus Out style)
@@ -301,16 +374,31 @@ namespace WhoGetInBus.GamePlay
                     {
                         if (r == 0)
                         {
-                            // 1. Xe ở hàng đầu tiên -> Xuất bến ra đường đua đón khách!
+                            // 1. Xe ở hàng đầu tiên -> Xuất bến ra đường đua đón khách! (Cocos: LevelController.select)
                             var track = LoopTrackSystem.Instance;
-                            if (track == null || !track.PathReady)
+                            CarLoopFollower follower = colList[r];
+
+                            // Đường đã đủ xe (Cocos: deployableCartCount <= _curSelectCount) hoặc không giữ được chỗ nhập làn → từ chối, xe rung
+                            if (track == null || !track.PathReady || !track.HasFreeDeploySlot)
                             {
                                 car.PlayBlockedBumpAnimation();
                                 return;
                             }
+                            CartDeployPlan plan = track.CreateCartDeployPlan(follower.transform.position);
+                            if (plan == null || !plan.valid)
+                            {
+                                car.PlayBlockedBumpAnimation();
+                                return;
+                            }
+                            var reservation = track.PrepareCartDeploy(follower, plan);
+                            if (reservation == null)
+                            {
+                                car.PlayBlockedBumpAnimation();
+                                return;
+                            }
+
                             colList.RemoveAt(0);
-                            CarLoopFollower follower = car as CarLoopFollower ?? car.GetComponent<CarLoopFollower>();
-                            StartCoroutine(DispatchCarRoutine(follower, c));
+                            StartCoroutine(DispatchCarRoutine(follower, c, plan, reservation));
                         }
                         else
                         {
@@ -336,7 +424,7 @@ namespace WhoGetInBus.GamePlay
         /// 2. Xe lao THẲNG tới điểm nhập làn trên tim đường với tốc độ tối đa (road.max_speed × 1.5), nhún nhẹ 0.2 và xoay dần về hướng đường.
         /// 3. Tới nơi: đăng ký vào đường đua đúng vị trí đó rồi chạy tiếp theo cơ chế CartTrackController.
         /// </summary>
-        private IEnumerator DispatchCarRoutine(CarLoopFollower car, int colIndex)
+        private IEnumerator DispatchCarRoutine(CarLoopFollower car, int colIndex, CartDeployPlan plan, CartDeployReservation reservation)
         {
             if (car == null) yield break;
 
@@ -344,13 +432,10 @@ namespace WhoGetInBus.GamePlay
 
             // Cocos: bucket rời bãi ngay khi được chọn → các xe phía sau dồn lên luôn, không chờ xe nhập làn xong
             AdvanceColumn(colIndex);
+            RevealColumn(colIndex);
 
             var track = LoopTrackSystem.Instance;
-            CartDeployPlan plan = track != null ? track.CreateCartDeployPlan(car.transform.position) : null;
-            if (plan == null || !plan.valid) yield break;
-
-            var reservation = track.PrepareCartDeploy(car, plan);
-            if (reservation == null) yield break;
+            if (track == null) yield break;
 
             float speed = reservation.reducedSpeed ? track.BlockedDeployMoveSpeed : track.MaxMoveSpeed;
             Vector3 startPos = car.transform.position;

@@ -57,6 +57,9 @@ namespace WhoGetInBus.EditorTools
         private int parkingCols = 4;
         private string[,] carGrid = new string[6, 4];
         private List<int> queuePassengers = new List<int>();
+        private int selectedQueueRun = -1;
+        private int newQueueRunCount = 10;
+        private Vector2 queueRunsScroll;
 
         // Công cụ vẽ tranh cát
         private int selectedBrushColor = 1;
@@ -813,6 +816,8 @@ namespace WhoGetInBus.EditorTools
                 AutoBalanceQueueFromFleet();
             }
             EditorGUILayout.EndHorizontal();
+
+            DrawQueueEditor();
         }
 
         private void DrawCarSlotCell(int r, int c)
@@ -1293,6 +1298,167 @@ namespace WhoGetInBus.EditorTools
             }
             return false;
         }
+
+        #region XẾP MÀU HÀNG ĐỢI (QUEUE)
+
+        /// <summary>Gom queue thành các đoạn liên tiếp cùng màu: (màu, số phần tử).</summary>
+        private List<KeyValuePair<int, int>> BuildQueueRuns()
+        {
+            var runs = new List<KeyValuePair<int, int>>();
+            for (int i = 0; i < queuePassengers.Count; i++)
+            {
+                int c = queuePassengers[i];
+                if (runs.Count > 0 && runs[runs.Count - 1].Key == c)
+                {
+                    runs[runs.Count - 1] = new KeyValuePair<int, int>(c, runs[runs.Count - 1].Value + 1);
+                }
+                else
+                {
+                    runs.Add(new KeyValuePair<int, int>(c, 1));
+                }
+            }
+            return runs;
+        }
+
+        private void ApplyQueueRuns(List<KeyValuePair<int, int>> runs)
+        {
+            queuePassengers.Clear();
+            for (int r = 0; r < runs.Count; r++)
+            {
+                for (int i = 0; i < runs[r].Value; i++) queuePassengers.Add(runs[r].Key);
+            }
+            RecalculateDemand();
+            Repaint();
+        }
+
+        private static string[] queueColorPopupLabels;
+        private static string[] GetColorPopupLabels()
+        {
+            if (queueColorPopupLabels == null)
+            {
+                queueColorPopupLabels = new string[ColorNames.Length];
+                for (int i = 0; i < ColorNames.Length; i++) queueColorPopupLabels[i] = $"#{i} {ColorNames[i]}";
+            }
+            return queueColorPopupLabels;
+        }
+
+        /// <summary>
+        /// Xếp thứ tự màu hàng đợi (levelNCXHCfg.json → queue): hạt từ queue rơi vào bàn cát qua các cột 16–23 phía trên.
+        /// Mỗi khối = 1 đoạn liên tiếp cùng màu; mỗi phần tử queue sinh ra exchangeRatio hạt cát.
+        /// </summary>
+        private void DrawQueueEditor()
+        {
+            EditorGUILayout.Space(6);
+            EditorGUILayout.LabelField("🧩 XẾP MÀU HÀNG ĐỢI (QUEUE) — hạt rơi từ đỉnh bàn cát:", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                $"Mỗi khối là 1 đoạn liên tiếp cùng màu (số phần tử queue), thứ tự trái → phải đúng như trong levelNCXHCfg.json. " +
+                $"Mỗi phần tử = {exchangeRatio} hạt cát. Game gốc rải queue theo nhiều vòng (mỗi vòng 2 phần tử/mục) nên khi rơi các màu sẽ xen kẽ.",
+                MessageType.None);
+
+            var runs = BuildQueueRuns();
+            if (selectedQueueRun >= runs.Count) selectedQueueRun = runs.Count - 1;
+
+            // ---- Dải khối màu (tự xuống dòng) ----
+            queueRunsScroll = EditorGUILayout.BeginScrollView(queueRunsScroll, GUILayout.Height(110));
+            float maxWidth = Mathf.Max(300f, EditorGUIUtility.currentViewWidth * 0.5f);
+            float used = 0f;
+            EditorGUILayout.BeginHorizontal();
+            var prevBg = GUI.backgroundColor;
+            var prevContent = GUI.contentColor;
+            for (int i = 0; i < runs.Count; i++)
+            {
+                float w = Mathf.Clamp(34f + Mathf.Log(runs[i].Value + 1f, 2f) * 14f, 40f, 110f);
+                if (used + w > maxWidth && used > 0f)
+                {
+                    EditorGUILayout.EndHorizontal();
+                    EditorGUILayout.BeginHorizontal();
+                    used = 0f;
+                }
+                used += w + 3f;
+
+                Color col = PaletteColors[Mathf.Clamp(runs[i].Key, 0, PaletteColors.Length - 1)];
+                GUI.backgroundColor = i == selectedQueueRun ? Color.Lerp(col, Color.yellow, 0.45f) : col;
+                GUI.contentColor = IsLightColor(runs[i].Key) ? Color.black : Color.white;
+                if (GUILayout.Button($"#{runs[i].Key}\n×{runs[i].Value}", GUILayout.Width(w), GUILayout.Height(36)))
+                {
+                    selectedQueueRun = i;
+                }
+            }
+            GUI.backgroundColor = prevBg;
+            GUI.contentColor = prevContent;
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndScrollView();
+
+            bool changed = false;
+
+            // ---- Sửa khối đang chọn ----
+            if (selectedQueueRun >= 0 && selectedQueueRun < runs.Count)
+            {
+                var run = runs[selectedQueueRun];
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField($"Khối {selectedQueueRun + 1}/{runs.Count}:", GUILayout.Width(80));
+                int newColor = EditorGUILayout.Popup(run.Key, GetColorPopupLabels(), GUILayout.Width(130));
+                int newCount = Mathf.Max(1, EditorGUILayout.IntField(run.Value, GUILayout.Width(50)));
+                EditorGUILayout.LabelField($"= {newCount * exchangeRatio} hạt", GUILayout.Width(80));
+                if (newColor != run.Key || newCount != run.Value)
+                {
+                    runs[selectedQueueRun] = new KeyValuePair<int, int>(newColor, newCount);
+                    changed = true;
+                }
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.BeginHorizontal();
+                GUI.enabled = selectedQueueRun > 0;
+                if (GUILayout.Button("◀ Rơi sớm hơn", GUILayout.Width(110)))
+                {
+                    var t = runs[selectedQueueRun]; runs[selectedQueueRun] = runs[selectedQueueRun - 1]; runs[selectedQueueRun - 1] = t;
+                    selectedQueueRun--;
+                    changed = true;
+                }
+                GUI.enabled = selectedQueueRun >= 0 && selectedQueueRun < runs.Count - 1;
+                if (GUILayout.Button("Rơi muộn hơn ▶", GUILayout.Width(110)))
+                {
+                    var t = runs[selectedQueueRun]; runs[selectedQueueRun] = runs[selectedQueueRun + 1]; runs[selectedQueueRun + 1] = t;
+                    selectedQueueRun++;
+                    changed = true;
+                }
+                GUI.enabled = true;
+                if (GUILayout.Button("🗑 Xoá khối", GUILayout.Width(90)))
+                {
+                    runs.RemoveAt(selectedQueueRun);
+                    selectedQueueRun = Mathf.Min(selectedQueueRun, runs.Count - 1);
+                    changed = true;
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            // ---- Thêm khối mới (màu đang chọn ở bảng màu) ----
+            EditorGUILayout.BeginHorizontal();
+            string brushName = selectedBrushColor >= 0 && selectedBrushColor < ColorNames.Length ? ColorNames[selectedBrushColor] : "";
+            EditorGUILayout.LabelField($"Thêm khối màu #{selectedBrushColor} {brushName} (đang chọn ở bảng màu), số lượng:", GUILayout.Width(380));
+            newQueueRunCount = Mathf.Max(1, EditorGUILayout.IntField(newQueueRunCount, GUILayout.Width(50)));
+            if (GUILayout.Button("➕ Chèn sau khối chọn", GUILayout.Width(150)))
+            {
+                int at = selectedQueueRun >= 0 && selectedQueueRun < runs.Count ? selectedQueueRun + 1 : runs.Count;
+                runs.Insert(at, new KeyValuePair<int, int>(Mathf.Clamp(selectedBrushColor, 0, PaletteColors.Length - 1), newQueueRunCount));
+                selectedQueueRun = at;
+                changed = true;
+            }
+            if (GUILayout.Button("➕ Thêm vào cuối", GUILayout.Width(120)))
+            {
+                runs.Add(new KeyValuePair<int, int>(Mathf.Clamp(selectedBrushColor, 0, PaletteColors.Length - 1), newQueueRunCount));
+                selectedQueueRun = runs.Count - 1;
+                changed = true;
+            }
+            EditorGUILayout.EndHorizontal();
+
+            if (changed)
+            {
+                ApplyQueueRuns(runs);
+            }
+        }
+
+        #endregion
 
         private void AutoBalanceQueueFromFleet()
         {

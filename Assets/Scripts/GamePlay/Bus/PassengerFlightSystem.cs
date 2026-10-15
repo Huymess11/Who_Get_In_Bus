@@ -412,6 +412,28 @@ namespace WhoGetInBus.GamePlay
 
         #endregion
 
+        /// <summary>
+        /// Cho toàn bộ khách đang bay / đang chờ phóng của xe đáp xuống NGAY (Cocos: PassengerBoardingPresenter.forceArriveForBuckets).
+        /// Dùng trước khi gộp 3 xe để số ghế còn lại của từng xe là chính xác — nếu huỷ xe khi khách còn đang bay
+        /// thì hạt đã bị hút khỏi bàn nhưng ghế không được trừ, xe gộp sẽ đòi thừa khách.
+        /// </summary>
+        public void ForceArrive(Car car)
+        {
+            if (car == null) return;
+
+            if (waiting.TryGetValue(car, out var q))
+            {
+                while (q.Count > 0) Finish(q.Dequeue());
+                waiting.Remove(car);
+            }
+            cooldown.Remove(car);
+
+            for (int i = flights.Count - 1; i >= 0; i--)
+            {
+                if (i < flights.Count && flights[i].car == car) Finish(flights[i]);
+            }
+        }
+
         /// <summary>Huỷ toàn bộ khách đang bay (khi nạp màn mới).</summary>
         public void Clear()
         {

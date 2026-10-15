@@ -129,6 +129,24 @@ namespace WhoGetInBus.GamePlay
             queueColors.Reverse();
         }
 
+        /// <summary>
+        /// Số hạt còn lại của 1 màu = hạt trên bàn + hạt trong hàng đợi (Cocos: TargetController.getRemainingCount —
+        /// _liveRemainingByColor khởi tạo bằng tổng bàn + queue, trừ dần khi hạt bị hút).
+        /// </summary>
+        public int CountRemainingOfColor(int color)
+        {
+            int n = 0;
+            if (grid != null)
+            {
+                for (int r = 0; r < grid.rows; r++)
+                    for (int c = 0; c < grid.cols; c++)
+                        if (grid.flags[r, c] == color) n++;
+            }
+            for (int i = 0; i < queueColors.Count; i++)
+                if (queueColors[i] == color) n++;
+            return n;
+        }
+
         public void ClearAllBeads()
         {
             if (grid == null) return;

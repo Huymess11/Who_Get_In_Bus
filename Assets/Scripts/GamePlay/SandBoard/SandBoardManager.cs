@@ -150,6 +150,9 @@ namespace WhoGetInBus.GamePlay
         public int[,] BeadColorIndices => beadColorIndices;
         public SandBoardLogic Logic => logic;
 
+        /// <summary>Số hạt còn lại (bàn + hàng đợi) của 1 màu (Cocos: TargetController.getRemainingCount).</summary>
+        public int GetRemainingCountOfColor(GameColorType color) => logic != null ? logic.CountRemainingOfColor((int)color) : 0;
+
         /// <summary>Có hạt nào đang trượt (sóng sụt lở chưa kết thúc) không.</summary>
         public bool HasActiveCollapseMotion => motions.Count > 0;
 
