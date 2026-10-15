@@ -101,7 +101,7 @@ namespace WhoGetInBus.GamePlay
 
         [Header("Nhập Làn Từ Bãi Đỗ (Cocos deployToCartTrack)")]
         [Tooltip("Độ nhún (đơn vị) khi xe lao ra đường (Cocos: 0.2)")]
-        public float deployArcHeight = 0.2f;
+        public float deployArcHeight = 0.17f;
         [Tooltip("Xe có x nhỏ hơn ngưỡng này sẽ dịch điểm nhập làn sang phải (Cocos: deployTurnThresholdX = 3.5, nhân hệ số co X)")]
         public float deployTurnThresholdX = 3.0f;
         [Tooltip("Độ dịch điểm nhập làn sang phải (Cocos: deployTurnStagingOffsetX = 0.35)")]
@@ -128,12 +128,12 @@ namespace WhoGetInBus.GamePlay
         [Header("Hiệu Chỉnh Tỷ Lệ Đường Đua (Fit Track To Road Visual)")]
         [Tooltip("Bật/tắt tự động co giãn toạ độ waypoint khớp với mặt đường vẽ 2D")]
         public bool enableTrackScale = true;
-        [Tooltip("Tỷ lệ scale trục X và Z để thu hẹp vừa khít lòng đường nhựa (Mặc định: X = 0.86, Z = 0.72)")]
-        public Vector2 trackScale = new Vector2(0.86f, 0.72f);
+        [Tooltip("Tỷ lệ scale trục X và Z để thu hẹp vừa khít lòng đường nhựa (Mặc định: X = 0.852, Z = 0.767)")]
+        public Vector2 trackScale = new Vector2(0.852f, 0.767f);
         [Tooltip("Độ dịch tâm trục X (trái/phải)")]
         public float trackOffsetX = 0f;
         [Tooltip("Độ dịch tâm trục Z (tiến/lùi) để vòm chữ U và đáy vừa khít tim đường")]
-        public float trackOffsetZ = -0.45f;
+        public float trackOffsetZ = -0.018f;
         [Tooltip("Cao độ nâng lên để tránh z-fighting")]
         public float trackHeightOffset = 0f;
 
@@ -179,13 +179,25 @@ namespace WhoGetInBus.GamePlay
 
         public float MoveSpeed => moveSpeed;
 
+        /// <summary>Hệ số đổi đơn vị Cocos → Unity (= trackScale.x, mặc định 100px/117.39px = 0.852). Mọi khoảng cách/tốc độ lấy từ Cocos phải nhân hệ số này để giữ đúng tỉ lệ với đường.</summary>
+        public float WorldScale => (enableTrackScale && trackScale.x > 0.0001f) ? trackScale.x : 1f;
+
+        /// <summary>Khoảng cách tối thiểu giữa 2 xe (đã đổi sang đơn vị Unity).</summary>
+        public float FollowGap => Mathf.Max(0f, followGapDistance) * WorldScale;
+
+        /// <summary>Khoảng nhìn trước (đã đổi sang đơn vị Unity).</summary>
+        public float LookAhead => lookAheadDistance * WorldScale;
+
+        /// <summary>Dung sai ngã rẽ/điểm cắt (đã đổi sang đơn vị Unity).</summary>
+        public float JunctionEps => junctionEpsilon * WorldScale;
+
         /// <summary>Tốc độ tối đa của xe trên đường (Cocos: maxMoveSpeed) — cũng là tốc độ xe lao từ bãi ra đường.</summary>
         public float MaxMoveSpeed
         {
             get
             {
                 float roadMax = currentRoadCfg != null ? currentRoadCfg.max_speed : 0f;
-                return roadMax > 0f ? roadMax * accelerateSpeedRatio : moveSpeed * accelerateSpeedRatio;
+                return roadMax > 0f ? roadMax * WorldScale * accelerateSpeedRatio : moveSpeed * accelerateSpeedRatio;
             }
         }
 
@@ -202,7 +214,7 @@ namespace WhoGetInBus.GamePlay
             {
                 RebuildPathCache();
             }
-            moveSpeed = baseSpeed;
+            moveSpeed = baseSpeed * WorldScale;
         }
 
         public void EnsureConfigLoaded()
@@ -432,7 +444,7 @@ namespace WhoGetInBus.GamePlay
             else
             {
                 float t = GetLoopDistanceAtPointIndex(loopPathPoints.Count - 2);
-                if (t <= exitJunctionDistance + junctionEpsilon) t = exitJunctionDistance;
+                if (t <= exitJunctionDistance + JunctionEps) t = exitJunctionDistance;
                 loopBoostStartDistance = t;
             }
 
@@ -539,8 +551,8 @@ namespace WhoGetInBus.GamePlay
         /// </summary>
         public float GetTurnLeanTargetDeg(float distance, bool isExit)
         {
-            Vector3 now = SampleLookAheadTangent(distance, lookAheadDistance, isExit);
-            Vector3 ahead = SampleLookAheadTangent(distance + Mathf.Max(0.05f, lookAheadDistance), lookAheadDistance, isExit);
+            Vector3 now = SampleLookAheadTangent(distance, LookAhead, isExit);
+            Vector3 ahead = SampleLookAheadTangent(distance + Mathf.Max(0.05f, LookAhead), LookAhead, isExit);
             return GetTurnLeanTargetDeg(now, ahead);
         }
 
@@ -675,7 +687,7 @@ namespace WhoGetInBus.GamePlay
         /// </summary>
         public bool IsBoardingZone(float dist)
         {
-            return NormalizeLoopDistance(dist) <= exitJunctionDistance + junctionEpsilon;
+            return NormalizeLoopDistance(dist) <= exitJunctionDistance + JunctionEps;
         }
 
         public int FindClosestWaypointIndex(Vector3 pos)
@@ -721,14 +733,14 @@ namespace WhoGetInBus.GamePlay
             switch (state)
             {
                 case TrackSpeedState.Final:
-                    moveSpeed = emptyCarSpeed;
+                    moveSpeed = emptyCarSpeed * WorldScale;
                     break;
                 case TrackSpeedState.Full:
                     // Cocos: addSpeed — cộng acc_speed mỗi giây cho tới max_speed
-                    moveSpeed = currentRoadCfg != null ? currentRoadCfg.speed : baseSpeed;
+                    moveSpeed = (currentRoadCfg != null ? currentRoadCfg.speed : baseSpeed) * WorldScale;
                     break;
                 default:
-                    moveSpeed = currentRoadCfg != null && currentRoadCfg.speed > 0f ? currentRoadCfg.speed : baseSpeed;
+                    moveSpeed = (currentRoadCfg != null && currentRoadCfg.speed > 0f ? currentRoadCfg.speed : baseSpeed) * WorldScale;
                     break;
             }
         }
@@ -749,7 +761,7 @@ namespace WhoGetInBus.GamePlay
                 while (fullSpeedTimer >= 1f)
                 {
                     fullSpeedTimer -= 1f;
-                    moveSpeed = Mathf.Min(currentRoadCfg.max_speed, moveSpeed + currentRoadCfg.acc_speed);
+                    moveSpeed = Mathf.Min(currentRoadCfg.max_speed * WorldScale, moveSpeed + currentRoadCfg.acc_speed * WorldScale);
                 }
             }
         }
@@ -799,7 +811,7 @@ namespace WhoGetInBus.GamePlay
         /// <summary>Cocos: tickLoopingCart. Trả về true nếu xe vừa chuyển sang làn thoát.</summary>
         private bool TickLoopingCart(CarLoopFollower car, float allowance)
         {
-            float eps = junctionEpsilon;
+            float eps = JunctionEps;
 
             if (car.isPendingExit && IsAtLoopDistance(car.currentTrackDistance, exitJunctionDistance, eps))
             {
@@ -873,7 +885,7 @@ namespace WhoGetInBus.GamePlay
         /// <summary>Làn thoát thông thoáng cho 1 xe nữa vào chưa (Cocos: isExitEntryClear).</summary>
         public bool IsExitEntryClear()
         {
-            return IsExitLaneClear(followGapDistance);
+            return IsExitLaneClear(FollowGap);
         }
 
         /// <summary>
@@ -897,7 +909,7 @@ namespace WhoGetInBus.GamePlay
             if (car.isExiting || car.isPendingExit) return true;
 
             car.isPendingExit = true;
-            if (PathReady && IsAtLoopDistance(car.currentTrackDistance, exitJunctionDistance, junctionEpsilon) && IsExitEntryClear())
+            if (PathReady && IsAtLoopDistance(car.currentTrackDistance, exitJunctionDistance, JunctionEps) && IsExitEntryClear())
             {
                 SwitchToExiting(car);
             }
@@ -922,8 +934,8 @@ namespace WhoGetInBus.GamePlay
                 return;
             }
             float t = NormalizeLoopDistance(car.currentTrackDistance);
-            car.isLoopSkipAbsorb = t > exitJunctionDistance + junctionEpsilon;
-            car.isLoopSegmentBoost = t > loopBoostStartDistance + junctionEpsilon;
+            car.isLoopSkipAbsorb = t > exitJunctionDistance + JunctionEps;
+            car.isLoopSegmentBoost = t > loopBoostStartDistance + JunctionEps;
         }
 
         #endregion
@@ -961,7 +973,7 @@ namespace WhoGetInBus.GamePlay
                 else loopingOrder.Add(car);
             }
 
-            float gap = Mathf.Max(0f, followGapDistance);
+            float gap = FollowGap;
             if (gap <= 0f) return;
 
             loopingOrder.Sort(CompareLoopDistanceDelegate);
@@ -1102,7 +1114,7 @@ namespace WhoGetInBus.GamePlay
             plan.sourceWorld = carWorldPos;
             plan.mergeDistance = FindClosestLoopDistance(staging);
             plan.mergeWorld = EvaluatePosition(plan.mergeDistance, false);
-            plan.mergeTangent = SampleLookAheadTangent(plan.mergeDistance, lookAheadDistance, false);
+            plan.mergeTangent = SampleLookAheadTangent(plan.mergeDistance, LookAhead, false);
             if (plan.mergeTangent.sqrMagnitude < 0.001f) plan.mergeTangent = Vector3.right;
             plan.targetRotation = Quaternion.LookRotation(plan.mergeTangent.normalized, Vector3.up);
             plan.valid = true;
@@ -1135,7 +1147,7 @@ namespace WhoGetInBus.GamePlay
 
         private bool CanReserveDeploy(CarLoopFollower self, CartDeployPlan plan)
         {
-            float minGap = Mathf.Max(0f, followGapDistance);
+            float minGap = FollowGap;
 
             for (int i = 0; i < activeCarsOnTrack.Count; i++)
             {
@@ -1201,7 +1213,7 @@ namespace WhoGetInBus.GamePlay
 
             float step = GetCartMoveSpeed(car) * dt;
             float baseStep = step;
-            float gap = Mathf.Max(0f, followGapDistance);
+            float gap = FollowGap;
 
             if (gap > 0f && loopTotalLen > 0f)
             {
@@ -1244,7 +1256,7 @@ namespace WhoGetInBus.GamePlay
             }
             if (loopTotalLen <= 0f) return;
 
-            float gap = Mathf.Max(0f, followGapDistance);
+            float gap = FollowGap;
             overlapScratch.Clear();
             for (int i = 0; i < activeCarsOnTrack.Count; i++)
             {
@@ -1272,7 +1284,7 @@ namespace WhoGetInBus.GamePlay
         {
             if (!car.deploySpeedLimited || car.isExiting || loopTotalLen <= 0f) return;
 
-            float gap = Mathf.Max(0f, followGapDistance);
+            float gap = FollowGap;
             if (gap <= 0f)
             {
                 ReleaseDeploySpeedLimit(car);
@@ -1317,7 +1329,7 @@ namespace WhoGetInBus.GamePlay
         /// <summary>Cocos: resolveDeploySeekSpeedAtEnter — khe trống phía trước gần hơn thì tăng tốc, ngược lại giảm tốc chờ.</summary>
         private void ResolveDeploySeekSpeedAtEnter(CarLoopFollower car)
         {
-            float gap = Mathf.Max(0f, followGapDistance);
+            float gap = FollowGap;
             if (gap <= 0f) return;
 
             FindNearestDeploySeekSlotDistances(car, gap, out float front, out float rear);
@@ -1373,8 +1385,8 @@ namespace WhoGetInBus.GamePlay
         private void TickCaveCrossing(CarLoopFollower car, float prev, float cur)
         {
             if (!hasCavePath) return;
-            if (DidCrossLoopDistance(prev, cur, loopCaveEntryDistance, junctionEpsilon)) EnterCave(car);
-            if (DidCrossLoopDistance(prev, cur, loopCaveExitDistance, junctionEpsilon)) ExitCave(car);
+            if (DidCrossLoopDistance(prev, cur, loopCaveEntryDistance, JunctionEps)) EnterCave(car);
+            if (DidCrossLoopDistance(prev, cur, loopCaveExitDistance, JunctionEps)) ExitCave(car);
         }
 
         private bool IsInCaveSegment(float dist)
@@ -1383,7 +1395,7 @@ namespace WhoGetInBus.GamePlay
             float t = NormalizeLoopDistance(dist);
             float o = loopCaveEntryDistance;
             float i = loopCaveExitDistance;
-            float z = junctionEpsilon;
+            float z = JunctionEps;
             return o < i ? (t >= o + z && t < i - z) : (t >= o + z || t < i - z);
         }
 
@@ -1646,7 +1658,7 @@ namespace WhoGetInBus.GamePlay
 
             if (roadData.speed > 0f) baseSpeed = roadData.speed;
             if (Application.isPlaying) ResetTrackRuntime();
-            moveSpeed = baseSpeed;
+            moveSpeed = baseSpeed * WorldScale;
 
             // 1. Dọn dẹp waypoints cũ
             var toDestroy = new List<GameObject>();
@@ -1774,7 +1786,7 @@ namespace WhoGetInBus.GamePlay
         public Vector3 GetLookAheadTangent(Vector3 currentPos, int currentWpIdx, bool isExit)
         {
             float dist = FindClosestLoopDistance(currentPos);
-            return SampleLookAheadTangent(dist, lookAheadDistance, isExit);
+            return SampleLookAheadTangent(dist, LookAhead, isExit);
         }
 
         public int GetNextWaypointIndex(int currentIdx, bool isExit)

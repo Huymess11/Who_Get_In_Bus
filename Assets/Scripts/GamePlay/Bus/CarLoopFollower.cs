@@ -88,7 +88,7 @@ namespace WhoGetInBus.GamePlay
             transform.position = track.EvaluatePosition(currentTrackDistance, false);
             if (snapFacing)
             {
-                Vector3 initialTangent = track.SampleLookAheadTangent(currentTrackDistance, track.lookAheadDistance, false);
+                Vector3 initialTangent = track.SampleLookAheadTangent(currentTrackDistance, track.LookAhead, false);
                 if (initialTangent.sqrMagnitude > 0.001f)
                 {
                     facingCurrentRot = Quaternion.LookRotation(initialTangent, Vector3.up);
@@ -142,7 +142,7 @@ namespace WhoGetInBus.GamePlay
 
             if (!isExiting) currentWaypointIdx = track.FindClosestWaypointIndex(pos);
 
-            Vector3 heading = track.SampleLookAheadTangent(currentTrackDistance, track.lookAheadDistance, isExiting);
+            Vector3 heading = track.SampleLookAheadTangent(currentTrackDistance, track.LookAhead, isExiting);
             if (heading.sqrMagnitude <= 0.001f) return;
 
             Quaternion targetRot = Quaternion.LookRotation(heading, Vector3.up);

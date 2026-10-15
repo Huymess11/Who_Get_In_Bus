@@ -27,6 +27,9 @@ namespace WhoGetInBus.GamePlay
         [Tooltip("0 = Nạp tự động theo DataManager.GetLevel(), >0 = Test level cụ thể")]
         public int customLevelOverride = 0;
 
+        [Tooltip("Tắt (mặc định): giữ nguyên kích thước ảnh Top trong scene. Bật: tính lại chiều cao ảnh Top theo đúng tỉ lệ ảnh như game gốc.")]
+        public bool matchOriginalRoadArtProportion = false;
+
         private void Awake()
         {
             Instance = this;
@@ -148,7 +151,19 @@ namespace WhoGetInBus.GamePlay
                 if (bottomImg != null && downSp != null) bottomImg.sprite = downSp;
 
                 var topImg = canvasRoot.transform.Find("Top")?.GetComponent<UnityEngine.UI.Image>();
-                if (topImg != null && topSp != null) topImg.sprite = topSp;
+                if (topImg != null && topSp != null)
+                {
+                    topImg.sprite = topSp;
+
+                    // Game gốc hiển thị ảnh đường ĐỀU 2 trục; ảnh Top trong scene đang bị ép dọc (700px thay vì ~777px).
+                    // Mặc định GIỮ NGUYÊN kích thước scene. Bật cờ để về đúng tỉ lệ gốc (khi đó dùng scaleZ 0.852, offsetZ +0.229).
+                    var topRect = topImg.rectTransform;
+                    if (matchOriginalRoadArtProportion && topSp.rect.width > 0f)
+                    {
+                        float width = topRect.sizeDelta.x;
+                        topRect.sizeDelta = new Vector2(width, width * topSp.rect.height / topSp.rect.width);
+                    }
+                }
             }
 
             Debug.Log($"<color=cyan>[GameManager]</color> Đã áp dụng ảnh mặt đường: Environment #{levelData.bgStyle} (Down Road), Road #{levelData.road} (Top Road)!");
@@ -179,56 +194,6 @@ namespace WhoGetInBus.GamePlay
                 DataManager.NextLevel();
                 Debug.Log($"<color=green>[GameManager]</color> DataManager đã cập nhật sang Level tiếp theo: Level {DataManager.GetLevel()}!");
             }
-        }
-
-        private void OnGUI()
-        {
-            if (currentState == PlayState.Idle) return;
-
-            GUIStyle boxStyle = new GUIStyle(GUI.skin.box)
-            {
-                fontSize = 14,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleLeft
-            };
-
-            GUIStyle boldLabel = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold };
-            GUIStyle miniLabel = new GUIStyle(GUI.skin.label) { fontSize = 11 };
-
-            GUI.backgroundColor = new Color(0.1f, 0.15f, 0.25f, 0.85f);
-            GUILayout.BeginArea(new Rect(20, 20, 320, 200), boxStyle);
-
-            GUILayout.Label($"🎮 BUS JAM - LEVEL {currentLevelNumber}", boldLabel);
-            GUILayout.Space(2);
-
-            int remainingBeads = SandBoardManager.Instance != null ? SandBoardManager.Instance.TotalRemainingBeads : 0;
-            GUILayout.Label($"⏳ Hạt cát còn lại: {remainingBeads}");
-            GUILayout.Label($"🚌 Xe hoàn thành thoát màn: {completedCarsCount}");
-            GUILayout.Label($"⏱️ Thời gian chơi: {playTime:F1}s");
-
-            GUILayout.Space(4);
-            if (currentState == PlayState.Victory)
-            {
-                GUI.color = Color.green;
-                GUILayout.Label("🎉 CHIẾN THẮNG (VICTORY)! 🎉", boldLabel);
-                GUI.color = Color.white;
-
-                if (GUILayout.Button("▶️ Chơi Level Tiếp Theo", GUILayout.Height(28)))
-                {
-                    LoadAndStartLevel(DataManager.GetLevel());
-                }
-            }
-            else
-            {
-                GUILayout.Label("👉 Click vào xe đầu cột để xuất bến đón khách!", miniLabel);
-                if (GUILayout.Button("🔄 Chơi Lại Màn Này", GUILayout.Height(22)))
-                {
-                    LoadAndStartLevel(currentLevelNumber);
-                }
-            }
-
-            GUILayout.EndArea();
-            GUI.backgroundColor = Color.white;
         }
     }
 }

@@ -75,9 +75,9 @@ namespace WhoGetInBus.EditorTools
         // Hiệu chỉnh tỷ lệ vừa lòng đường (đồng bộ qua ScriptableObject RoadTrackConfigData)
         private RoadTrackConfigData trackConfig;
         private bool enableTrackScale = true;
-        private Vector2 trackScale = new Vector2(0.86f, 0.72f);
+        private Vector2 trackScale = new Vector2(0.852f, 0.767f);
         private float trackOffsetX = 0f;
-        private float trackOffsetZ = -0.45f;
+        private float trackOffsetZ = -0.018f;
 
         // Cài đặt 2D Canvas UI
         private Canvas targetCanvas;
@@ -709,10 +709,10 @@ namespace WhoGetInBus.EditorTools
             {
                 trackScale = EditorGUILayout.Vector2Field("Tỷ lệ co giãn (X, Z):", trackScale);
                 trackOffsetZ = EditorGUILayout.FloatField("Bù trục dọc Offset Z:", trackOffsetZ);
-                if (GUILayout.Button("🎯 Đặt Lại Tỷ Lệ Chuẩn (0.78, 0.72, -0.45)", GUILayout.Height(24)))
+                if (GUILayout.Button("🎯 Đặt Lại Tỷ Lệ Chuẩn (0.852, 0.767, -0.018)", GUILayout.Height(24)))
                 {
-                    trackScale = new Vector2(0.78f, 0.72f);
-                    trackOffsetZ = -0.45f;
+                    trackScale = new Vector2(0.852f, 0.767f);
+                    trackOffsetZ = -0.018f;
                 }
             }
 

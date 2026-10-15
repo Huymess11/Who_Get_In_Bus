@@ -68,12 +68,12 @@ namespace WhoGetInBus.GamePlay
         [Header("--- HIỆU CHỈNH TỶ LỆ ĐƯỜNG ĐUA (SCALE VỪA LÒNG ĐƯỜNG) ---")]
         [Tooltip("Bật/tắt tự động co giãn toạ độ waypoint khớp với mặt đường")]
         public bool enableTrackScale = true;
-        [Tooltip("Tỷ lệ scale trục X và Z để thu hẹp vừa khít lòng đường nhựa (Mặc định: X = 0.86, Z = 0.72)")]
-        public Vector2 trackScale = new Vector2(0.86f, 0.72f);
+        [Tooltip("Tỷ lệ scale trục X và Z để thu hẹp vừa khít lòng đường nhựa (Mặc định: X = 0.852, Z = 0.767)")]
+        public Vector2 trackScale = new Vector2(0.852f, 0.767f);
         [Tooltip("Độ dịch tâm trục X (trái/phải)")]
         public float trackOffsetX = 0f;
         [Tooltip("Độ dịch tâm trục Z (tiến/lùi) để vòm chữ U và đáy vừa khít tim đường")]
-        public float trackOffsetZ = -0.45f;
+        public float trackOffsetZ = -0.018f;
 
         [Header("--- CÀI ĐẶT 2D CANVAS UI (MAP CANVASS) ---")]
         [Tooltip("Canvas UI chứa đường 2D (Tự động tìm Map Canvass nếu để trống)")]

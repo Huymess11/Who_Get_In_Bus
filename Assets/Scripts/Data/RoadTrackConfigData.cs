@@ -19,22 +19,22 @@ namespace WhoGetInBus.Data
         public bool enableTrackScale = true;
 
         [Header("Hiệu Chỉnh Tỷ Lệ Co Giãn (Scale)")]
-        [Tooltip("Tỷ lệ chiều rộng trục X (Mặc định: 0.86 để rộng vừa khít lòng đường nhựa, 1.0 là toạ độ gốc Cocos)")]
+        [Tooltip("Tỷ lệ chiều rộng trục X (Mặc định: 100/117.39 = 0.852 — đổi 1 đơn vị Cocos (100px UI) sang đơn vị Unity với camera ortho 9.2; 1.0 là toạ độ gốc Cocos)")]
         [Range(0.5f, 1.3f)]
-        public float scaleX = 0.86f;
+        public float scaleX = 0.852f;
 
-        [Tooltip("Tỷ lệ chiều dọc trục Z (Mặc định: 0.72 để vòm U không vượt qua bảng cát)")]
+        [Tooltip("Tỷ lệ chiều dọc trục Z (Mặc định: 0.767 — khớp ảnh Top đang bị ép dọc (700px thay vì 777px). Nếu bật matchOriginalRoadArtProportion ở GameManager thì dùng 0.852)")]
         [Range(0.5f, 1.3f)]
-        public float scaleZ = 0.72f;
+        public float scaleZ = 0.767f;
 
         [Header("Độ Lệch Dịch Tâm (Offset)")]
         [Tooltip("Dịch ngang trục X sang trái (-) hoặc sang phải (+)")]
         [Range(-2f, 2f)]
         public float offsetX = 0f;
 
-        [Tooltip("Dịch dọc trục Z lên trên (+) hoặc xuống dưới (-). Mặc định: -0.45 để tim đường đáy nằm ngay trước bãi xe")]
+        [Tooltip("Dịch dọc trục Z lên trên (+) hoặc xuống dưới (-). Mặc định: -0.018 (đo từ ảnh đường Top hiện tại)")]
         [Range(-2f, 2f)]
-        public float offsetZ = -0.45f;
+        public float offsetZ = -0.018f;
 
         [Header("Cao Độ Nâng Lên (Elevation / Height Offset)")]
         [Tooltip("Cao độ nâng các điểm waypoint lên trục Y để không bị chìm/z-fighting")]
@@ -47,31 +47,31 @@ namespace WhoGetInBus.Data
         public Vector2 TrackScale => new Vector2(scaleX, scaleZ);
         public Vector3 TrackOffset => new Vector3(offsetX, heightOffset, offsetZ);
 
-        [ContextMenu("⚡ Đặt Về Chuẩn Vừa Khít Lòng Đường (X: 0.86, Z: 0.72)")]
+        [ContextMenu("⚡ Đặt Về Chuẩn Vừa Khít Lòng Đường (X: 0.852, Z: 0.767 — khớp ảnh đường hiện tại)")]
         public void ResetToFitRoadDefault()
         {
             enableTrackScale = true;
-            scaleX = 0.86f;
-            scaleZ = 0.72f;
+            scaleX = 0.852f;
+            scaleZ = 0.767f;
             offsetX = 0f;
-            offsetZ = -0.45f;
+            offsetZ = -0.018f;
             heightOffset = 0f;
 #if UNITY_EDITOR
             EditorUtility.SetDirty(this);
             AssetDatabase.SaveAssets();
             NotifyChanges();
 #endif
-            Debug.Log("<color=green>[RoadTrackConfigData]</color> Đã đặt về Chuẩn Vừa Khít Lòng Đường (X: 0.86, Z: 0.72, OffsetZ: -0.45)!");
+            Debug.Log("<color=green>[RoadTrackConfigData]</color> Đã đặt về Chuẩn Vừa Khít Lòng Đường (X: 0.852, Z: 0.767, OffsetZ: -0.018)!");
         }
 
-        [ContextMenu("⚡ Đặt Về Chuẩn Rộng Hơn (X: 0.90, Z: 0.72)")]
+        [ContextMenu("⚡ Đặt Về Chuẩn Rộng Hơn (X: 0.90, Z: 0.767)")]
         public void SetWiderPreset()
         {
             enableTrackScale = true;
             scaleX = 0.90f;
-            scaleZ = 0.72f;
+            scaleZ = 0.767f;
             offsetX = 0f;
-            offsetZ = -0.45f;
+            offsetZ = -0.018f;
             heightOffset = 0f;
 #if UNITY_EDITOR
             EditorUtility.SetDirty(this);
@@ -81,14 +81,14 @@ namespace WhoGetInBus.Data
             Debug.Log("<color=green>[RoadTrackConfigData]</color> Đã đặt về Chuẩn Rộng Hơn (X: 0.90)!");
         }
 
-        [ContextMenu("⚡ Đặt Về Chuẩn Hẹp Hơn (X: 0.80, Z: 0.72)")]
+        [ContextMenu("⚡ Đặt Về Chuẩn Hẹp Hơn (X: 0.80, Z: 0.767)")]
         public void SetNarrowPreset()
         {
             enableTrackScale = true;
             scaleX = 0.80f;
-            scaleZ = 0.72f;
+            scaleZ = 0.767f;
             offsetX = 0f;
-            offsetZ = -0.45f;
+            offsetZ = -0.018f;
             heightOffset = 0f;
 #if UNITY_EDITOR
             EditorUtility.SetDirty(this);

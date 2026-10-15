@@ -144,9 +144,9 @@ namespace WhoGetInBus.Editor
                 {
                     ApplyScaleX(mgr, 0.80f);
                 }
-                if (GUILayout.Button("0.86", GUILayout.Width(38), GUILayout.Height(18)))
+                if (GUILayout.Button("0.852", GUILayout.Width(38), GUILayout.Height(18)))
                 {
-                    ApplyScaleX(mgr, 0.86f);
+                    ApplyScaleX(mgr, 0.852f);
                 }
                 if (GUILayout.Button("0.90", GUILayout.Width(38), GUILayout.Height(18)))
                 {
@@ -177,9 +177,9 @@ namespace WhoGetInBus.Editor
                     SceneView.RepaintAll();
                 }
 
-                if (GUILayout.Button("0.72", GUILayout.Width(38), GUILayout.Height(18)))
+                if (GUILayout.Button("0.767", GUILayout.Width(38), GUILayout.Height(18)))
                 {
-                    ApplyScaleZ(mgr, 0.72f);
+                    ApplyScaleZ(mgr, 0.767f);
                 }
                 if (GUILayout.Button("0.80", GUILayout.Width(38), GUILayout.Height(18)))
                 {
@@ -210,9 +210,9 @@ namespace WhoGetInBus.Editor
                     SceneView.RepaintAll();
                 }
 
-                if (GUILayout.Button("-0.45", GUILayout.Width(45), GUILayout.Height(18)))
+                if (GUILayout.Button("-0.018", GUILayout.Width(45), GUILayout.Height(18)))
                 {
-                    ApplyOffsetZ(mgr, -0.45f);
+                    ApplyOffsetZ(mgr, -0.018f);
                 }
                 if (GUILayout.Button("0", GUILayout.Width(25), GUILayout.Height(18)))
                 {
@@ -280,7 +280,7 @@ namespace WhoGetInBus.Editor
             EditorGUILayout.LabelField("⚡ Thiết Lập Nhanh (Presets)", EditorStyles.boldLabel);
 
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("🎯 Chuẩn Vừa Khít (0.86, 0.72, -0.45)", GUILayout.Height(26)))
+            if (GUILayout.Button("🎯 Chuẩn Vừa Khít (0.852, 0.767, -0.018)", GUILayout.Height(26)))
             {
                 if (mgr.trackConfig != null) mgr.trackConfig.ResetToFitRoadDefault();
                 mgr.SyncFromConfig();
