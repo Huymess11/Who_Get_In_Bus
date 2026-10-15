@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace WhoGetInBus.GamePlay
@@ -27,8 +26,11 @@ namespace WhoGetInBus.GamePlay
         [Tooltip("0 = Nạp tự động theo DataManager.GetLevel(), >0 = Test level cụ thể")]
         public int customLevelOverride = 0;
 
-        [Tooltip("Tắt (mặc định): giữ nguyên kích thước ảnh Top trong scene. Bật: tính lại chiều cao ảnh Top theo đúng tỉ lệ ảnh như game gốc.")]
-        public bool matchOriginalRoadArtProportion = false;
+        [Header("Tham Chiếu Scene (kéo thả)")]
+        [SerializeField] private SandBoardManager sandBoard;
+        [SerializeField] private LoopTrackSystem loopTrack;
+        [SerializeField] private ParkingLotManager parkingLot;
+        [SerializeField] private EnvironmentController envController;
 
         private void Awake()
         {
@@ -57,6 +59,12 @@ namespace WhoGetInBus.GamePlay
         /// </summary>
         public void LoadAndStartLevel(int levelNumber)
         {
+            if (sandBoard == null || loopTrack == null || parkingLot == null || envController == null)
+            {
+                Debug.LogError("[GameManager] Thiếu tham chiếu scene (sandBoard / loopTrack / parkingLot / envController). Hãy kéo vào Inspector.", this);
+                return;
+            }
+
             currentLevelNumber = levelNumber;
             int targetLevelId = levelNumber;
             Debug.Log($"<color=cyan>[GameManager]</color> Đang nạp Level {levelNumber}...");
@@ -69,104 +77,16 @@ namespace WhoGetInBus.GamePlay
                 levelData = WhoGetInBus.Data.LevelConfigLoader.LoadLevel(targetLevelId);
             }
 
-            if (prefabData == null)
-            {
-#if UNITY_EDITOR
-                prefabData = UnityEditor.AssetDatabase.LoadAssetAtPath<GamePrefabData>("Assets/Data/GamePrefabData.asset");
-#endif
-            }
+            sandBoard.LoadLevelDirect(targetLevelId, prefabData);
 
-            // 1. Nạp Bàn Cát UI
-            var board = SandBoardManager.Instance != null ? SandBoardManager.Instance : FindFirstObjectByType<SandBoardManager>();
-            if (board != null)
-            {
-                board.LoadLevelDirect(targetLevelId, prefabData);
-            }
-
-            // 2. Nạp Tuyến Đường Đua Loop & Cổng đón khách
             int roadId = levelData != null ? levelData.road : 5;
-            var track = LoopTrackSystem.Instance != null ? LoopTrackSystem.Instance : FindFirstObjectByType<LoopTrackSystem>();
-            if (track != null)
-            {
-                track.LoadRoadFromConfig(roadId, prefabData);
-                track.currentLevel = levelData; // minibus_tran / bus_tran: số hạt xe hút mỗi lượt
-            }
+            loopTrack.LoadRoadFromConfig(roadId, prefabData);
+            loopTrack.currentLevel = levelData; 
 
-            // 3. Nạp Bãi Xe
-            var park = ParkingLotManager.Instance != null ? ParkingLotManager.Instance : FindFirstObjectByType<ParkingLotManager>();
-            if (park != null)
-            {
-                park.LoadLevelDirect(targetLevelId, prefabData);
-            }
+            parkingLot.LoadLevelDirect(targetLevelId, prefabData);
 
-            // 4. Cập nhật ảnh mặt đường theo Môi trường Level (Top & Down Road)
-            UpdateRoadEnvironmentVisuals(levelData);
-
-            // 5. Bắt đầu tính giờ và kích hoạt chơi
+            envController.Apply(levelData);
             StartGame();
-        }
-
-        /// <summary>
-        /// Tự động cập nhật ảnh Down Road và Top Road theo loại môi trường (bgStyle) và loại đường (road)
-        /// </summary>
-        private void UpdateRoadEnvironmentVisuals(WhoGetInBus.Data.LevelData levelData)
-        {
-            if (levelData == null) return;
-            var roadEnv = prefabData != null ? prefabData.roadEnvironmentData : null;
-            if (roadEnv == null)
-            {
-#if UNITY_EDITOR
-                roadEnv = UnityEditor.AssetDatabase.LoadAssetAtPath<WhoGetInBus.Data.RoadEnvironmentData>("Assets/Data/RoadEnvironmentData.asset");
-#endif
-            }
-            if (roadEnv == null) return;
-
-            Sprite downSp = roadEnv.GetDownRoad(levelData.bgStyle);
-            Sprite topSp = roadEnv.GetTopRoad(levelData.bgStyle, levelData.road);
-
-            // 1. Gán vào Map 3D SpriteRenderer (dưới GameObject ---Map---)
-            var mapRoot = GameObject.Find("---Map---");
-            if (mapRoot != null)
-            {
-                var bottomTrans = mapRoot.transform.Find("Bottom");
-                if (bottomTrans != null)
-                {
-                    var sr = bottomTrans.GetComponent<SpriteRenderer>();
-                    if (sr != null && downSp != null) sr.sprite = downSp;
-                }
-
-                var topTrans = mapRoot.transform.Find("Top");
-                if (topTrans != null)
-                {
-                    var sr = topTrans.GetComponent<SpriteRenderer>();
-                    if (sr != null && topSp != null) sr.sprite = topSp;
-                }
-            }
-
-            // 2. Gán vào Map Canvass UI Image nếu đang hiển thị qua Canvas
-            var canvasRoot = GameObject.Find("Map Canvass");
-            if (canvasRoot != null)
-            {
-                var bottomImg = canvasRoot.transform.Find("Bottom")?.GetComponent<UnityEngine.UI.Image>();
-                if (bottomImg != null && downSp != null) bottomImg.sprite = downSp;
-
-                var topImg = canvasRoot.transform.Find("Top")?.GetComponent<UnityEngine.UI.Image>();
-                if (topImg != null && topSp != null)
-                {
-                    topImg.sprite = topSp;
-
-                    // Game gốc hiển thị ảnh đường ĐỀU 2 trục; ảnh Top trong scene đang bị ép dọc (700px thay vì ~777px).
-                    // Mặc định GIỮ NGUYÊN kích thước scene. Bật cờ để về đúng tỉ lệ gốc (khi đó dùng scaleZ 0.852, offsetZ +0.229).
-                    var topRect = topImg.rectTransform;
-                    if (matchOriginalRoadArtProportion && topSp.rect.width > 0f)
-                    {
-                        float width = topRect.sizeDelta.x;
-                        topRect.sizeDelta = new Vector2(width, width * topSp.rect.height / topSp.rect.width);
-                    }
-                }
-            }
-
-            Debug.Log($"<color=cyan>[GameManager]</color> Đã áp dụng ảnh mặt đường: Environment #{levelData.bgStyle} (Down Road), Road #{levelData.road} (Top Road)!");
         }
 
         public void StartGame()

@@ -227,12 +227,17 @@ namespace WhoGetInBus.GamePlay
         /// <summary>Ẩn/hiện toàn bộ phần nhìn thấy của xe (dùng khi xe chui vào hầm - Cocos: enterCave/exitCave).</summary>
         public void SetVisualVisible(bool visible)
         {
-            var renderers = GetComponentsInChildren<Renderer>(true);
-            for (int i = 0; i < renderers.Length; i++) renderers[i].enabled = visible;
+            // Chỉ truy vấn component 1 lần rồi dùng lại (xe ra/vào hầm mỗi vòng)
+            if (visualRenderers == null) visualRenderers = GetComponentsInChildren<Renderer>(true);
+            if (bodyCollider == null) bodyCollider = GetComponent<Collider>();
+
+            for (int i = 0; i < visualRenderers.Length; i++) visualRenderers[i].enabled = visible;
             if (seatText != null) seatText.enabled = visible;
-            var col = GetComponent<Collider>();
-            if (col != null) col.enabled = visible;
+            if (bodyCollider != null) bodyCollider.enabled = visible;
         }
+
+        private Renderer[] visualRenderers;
+        private Collider bodyCollider;
 
         /// <summary>
         /// Hiệu ứng rung nảy thân xe khi đón khách hoặc hợp thể

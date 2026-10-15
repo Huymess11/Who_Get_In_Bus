@@ -135,9 +135,13 @@ namespace WhoGetInBus.GamePlay
         private readonly List<Vector2Int> selectedCells = new List<Vector2Int>(32);
         private static readonly Vector2Int[] noGates = new Vector2Int[0];
 
-        private SandBoardGraphic graphic;
-        private Camera cachedCameraUI;
-        private Camera cachedMainCamera;
+        [Header("Tham Chiếu Scene (kéo thả)")]
+        [SerializeField] private SandBoardGraphic graphic;
+        [SerializeField] private RectTransform rectTransform;
+        [Tooltip("Camera 3D vẽ xe (Main Camera)")]
+        [SerializeField] private Camera mainCamera;
+        [Tooltip("Camera của canvas bàn cát (Camera UI 3D)")]
+        [SerializeField] private Camera uiCamera;
 
         /// <summary>Tổng số hạt còn lại = hạt trên bàn cát + hạt còn trong hàng đợi chờ rơi xuống.</summary>
         public int TotalRemainingBeads => logic.boardBeadCount + logic.queueColors.Count;
@@ -189,7 +193,7 @@ namespace WhoGetInBus.GamePlay
         {
             if (config != null)
             {
-                RectTransform rt = GetComponent<RectTransform>();
+                RectTransform rt = rectTransform;
                 if (rt != null)
                 {
                     rt.anchoredPosition = config.boardPosition;
@@ -213,7 +217,7 @@ namespace WhoGetInBus.GamePlay
             if (passengerAtlas != null) config.passengerAtlas = passengerAtlas;
             if (passengerColors != null) config.passengerColors = passengerColors;
 
-            RectTransform rt = GetComponent<RectTransform>();
+            RectTransform rt = rectTransform;
             if (rt != null)
             {
                 config.boardPosition = rt.anchoredPosition;
@@ -223,10 +227,16 @@ namespace WhoGetInBus.GamePlay
 #endif
         }
 
+        // Tự gán tham chiếu cùng object khi thêm component trong Editor (không dùng GetComponent lúc chạy)
+        private void Reset()
+        {
+            graphic = GetComponent<SandBoardGraphic>();
+            rectTransform = GetComponent<RectTransform>();
+        }
+
         private void Awake()
         {
             Instance = this;
-            graphic = GetComponent<SandBoardGraphic>();
             EnsureConfigLoaded();
             EnsureAtlasLoaded();
 
@@ -245,7 +255,6 @@ namespace WhoGetInBus.GamePlay
         private void OnEnable()
         {
             Instance = this;
-            if (graphic == null) graphic = GetComponent<SandBoardGraphic>();
             EnsureConfigLoaded();
             EnsureAtlasLoaded();
         }
@@ -565,7 +574,7 @@ namespace WhoGetInBus.GamePlay
             row = -1;
             Camera cam3D = MainCamera;
             Camera camUI = CameraUI;
-            RectTransform rt = GetComponent<RectTransform>();
+            RectTransform rt = rectTransform;
             if (cam3D == null || rt == null) return false;
 
             Vector3 screenPos = cam3D.WorldToScreenPoint(worldPos);
@@ -928,44 +937,12 @@ namespace WhoGetInBus.GamePlay
             return uiWorldPos;
         }
 
-        private Camera CameraUI
-        {
-            get
-            {
-                if (cachedCameraUI == null)
-                {
-                    var canvas = GetComponentInParent<Canvas>();
-                    if (canvas != null && canvas.worldCamera != null) cachedCameraUI = canvas.worldCamera;
-                    else
-                    {
-                        var go = GameObject.Find("Camera UI 3D");
-                        if (go != null) cachedCameraUI = go.GetComponent<Camera>();
-                    }
-                }
-                return cachedCameraUI;
-            }
-        }
+        private Camera CameraUI => uiCamera;
 
-        private Camera MainCamera
-        {
-            get
-            {
-                if (cachedMainCamera == null)
-                {
-                    cachedMainCamera = Camera.main;
-                    if (cachedMainCamera == null)
-                    {
-                        var go = GameObject.Find("Main Camera");
-                        if (go != null) cachedMainCamera = go.GetComponent<Camera>();
-                    }
-                }
-                return cachedMainCamera;
-            }
-        }
+        private Camera MainCamera => mainCamera;
 
         public void RefreshGraphic()
         {
-            if (graphic == null) graphic = GetComponent<SandBoardGraphic>();
             if (graphic != null)
             {
                 graphic.SetVerticesDirty();

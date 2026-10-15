@@ -117,6 +117,12 @@ namespace WhoGetInBus.GamePlay
         [Tooltip("Dữ liệu màn đang chơi (lấy minibus_tran / bus_tran). GameManager gán khi nạp level")]
         [System.NonSerialized] public LevelData currentLevel;
 
+        [Header("Tham Chiếu Scene (kéo thả)")]
+        [SerializeField] private SandBoardManager sandBoard;
+        [SerializeField] private ParkingLotManager parkingLot;
+        [Tooltip("Hệ thống khách bay lên xe (gán passengerPrefab trên chính component đó)")]
+        [SerializeField] private PassengerFlightSystem flightSystem;
+
         [Header("Luật Hợp Thể 3 Xe Cùng Màu (Extra Car Merge)")]
         public GameObject extraCarPrefab;
         public BusColorData busColors;
@@ -165,7 +171,6 @@ namespace WhoGetInBus.GamePlay
         private float fullSpeedTimer;
         private float absorbTimer;
         private int absorbScanCursor;
-        private PassengerFlightSystem flightSystem;
 
         private readonly List<CarLoopFollower> loopingOrder = new List<CarLoopFollower>();
         private readonly List<CarLoopFollower> exitingOrder = new List<CarLoopFollower>();
@@ -749,7 +754,7 @@ namespace WhoGetInBus.GamePlay
         {
             if (autoSpeedState)
             {
-                var lot = ParkingLotManager.Instance;
+                var lot = parkingLot;
                 bool lotEmpty = lot != null && lot.HasLoaded && lot.RemainingCarCount <= 0;
                 if (lotEmpty && speedState == TrackSpeedState.Normal) SetSpeedState(TrackSpeedState.Final);
                 else if (!lotEmpty && speedState == TrackSpeedState.Final) SetSpeedState(TrackSpeedState.Normal);
@@ -1430,19 +1435,9 @@ namespace WhoGetInBus.GamePlay
 
         #region VÒNG QUÉT ĂN CÁT (Cocos LevelController.tickAbsorb)
 
-        private void EnsureFlightSystem()
-        {
-            if (flightSystem == null)
-            {
-                flightSystem = PassengerFlightSystem.Instance != null ? PassengerFlightSystem.Instance : GetComponent<PassengerFlightSystem>();
-                if (flightSystem == null) flightSystem = gameObject.AddComponent<PassengerFlightSystem>();
-            }
-            if (flightSystem.passengerPrefab == null && prefabData != null) flightSystem.passengerPrefab = prefabData.passengerPrefab;
-        }
-
         private void TickAbsorb(float dt)
         {
-            if (SandBoardManager.Instance == null || activeCarsOnTrack.Count == 0) return;
+            if (sandBoard == null || activeCarsOnTrack.Count == 0) return;
 
             absorbTimer += dt;
             if (absorbTimer < absorbDetectionInterval) return;
@@ -1467,7 +1462,7 @@ namespace WhoGetInBus.GamePlay
                 return;
             }
 
-            var lot = ParkingLotManager.Instance;
+            var lot = parkingLot;
             bool boardEmpty = lot != null && lot.HasLoaded && lot.RemainingCarCount <= 0;
 
             int budget = e > absorbScanBudgetPerTick ? 2 : 1;
@@ -1497,13 +1492,12 @@ namespace WhoGetInBus.GamePlay
             if (cap <= 0) return true;
 
             absorbItems.Clear();
-            int removed = SandBoardManager.Instance.ExtractPassengersForCar(car, cap, boardEmpty, car.relaxedAbsorbUnlocked, absorbItems);
+            int removed = sandBoard.ExtractPassengersForCar(car, cap, boardEmpty, car.relaxedAbsorbUnlocked, absorbItems);
             if (removed <= 0) return true;
 
             absorbPoints.Clear();
             for (int i = 0; i < absorbItems.Count; i++) absorbPoints.Add(absorbItems[i].worldPos);
 
-            EnsureFlightSystem();
             flightSystem.Dispatch(car, absorbPoints, removed);
             return true;
         }

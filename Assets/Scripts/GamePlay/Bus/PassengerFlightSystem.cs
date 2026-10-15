@@ -15,7 +15,8 @@ namespace WhoGetInBus.GamePlay
     /// </summary>
     public class PassengerFlightSystem : MonoBehaviour
     {
-        public static PassengerFlightSystem Instance { get; private set; }
+        [Header("Tham Chiếu Scene (kéo thả)")]
+        [SerializeField] private SandBoardManager sandBoard;
 
         [Header("Prefab khách bay (SpriteRenderer)")]
         public GameObject passengerPrefab;
@@ -79,14 +80,8 @@ namespace WhoGetInBus.GamePlay
             }
         }
 
-        private void Awake()
-        {
-            Instance = this;
-        }
-
         private void OnDestroy()
         {
-            if (Instance == this) Instance = null;
             if (flightRoot != null) Destroy(flightRoot.gameObject);
         }
 
@@ -360,18 +355,18 @@ namespace WhoGetInBus.GamePlay
             if (f == null || f.go == null) f = CreateFlight();
             if (f == null || f.go == null) return null;
 
-            if (f.sr != null && SandBoardManager.Instance != null)
+            if (f.sr != null && sandBoard != null)
             {
-                var colors = SandBoardManager.Instance.passengerColors;
+                var colors = sandBoard.passengerColors;
                 if (colors != null && colors.data != null && colors.data.TryGetValue(car.carColor, out Sprite sprite) && sprite != null)
                 {
                     f.sr.sprite = sprite;
                 }
             }
-            else if (f.sr == null && SandBoardManager.Instance != null)
+            else if (f.sr == null && sandBoard != null)
             {
                 var mr = f.go.GetComponentInChildren<MeshRenderer>();
-                if (mr != null) mr.material.color = SandBoardManager.Instance.GetPaletteColor((int)car.carColor);
+                if (mr != null) mr.material.color = sandBoard.GetPaletteColor((int)car.carColor);
             }
 
             f.tr.localScale = f.baseScale;
