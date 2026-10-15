@@ -12,6 +12,15 @@ public class EnvironmentController : MonoBehaviour
 
     public List<Image> TopRoadDetail;
 
+    [Tooltip("Các ảnh cảnh trang trí; View[i] nhận RoadEnvironmentData.views[i] của môi trường")]
+    public List<Image> View;
+    [Tooltip("Banner phía trên (ding1..5)")]
+    public Image TopBanner;
+    [Tooltip("Image nền 'bg' — đổi màu theo môi trường")]
+    public Image BG;
+    [Tooltip("(Tuỳ chọn) Nền thanh dưới đáy — đổi sprite dik1..5. Để trống nếu dùng UI thanh đáy riêng")]
+    public Image BottomBar;
+
     public bool keepTopRoadProportion = false;
 
     private static readonly Regex OverlayName = new Regex(@"^Overlay Road(\d+)\s+(\S+)", RegexOptions.Compiled);
@@ -71,6 +80,38 @@ public class EnvironmentController : MonoBehaviour
                 }
 
                 img.sprite = sp;
+            }
+        }
+
+        ApplyStyle(bgStyle);
+    }
+
+    /// <summary>
+    /// Đổi Top Banner, các View, thanh đáy và màu nền theo môi trường (Cocos: GameUI bgSprites + bgStyleSprite.color).
+    /// Chỉ đổi sprite / màu và bật tắt — vị trí, kích thước do scene quyết định.
+    /// </summary>
+    private void ApplyStyle(int bgStyle)
+    {
+        EnvironmentRoadSet set = Data.GetEnvironment(bgStyle);
+
+        if (BG != null) BG.color = Data.GetBgColor(bgStyle);
+        if (set == null) return;
+
+        if (TopBanner != null && set.topBanner != null) TopBanner.sprite = set.topBanner;
+        if (BottomBar != null && set.bottomBar != null) BottomBar.sprite = set.bottomBar;
+
+        // View thứ i nhận ảnh thứ i; môi trường có ít ảnh hơn số View thì ẩn các View thừa.
+        // Data chưa gắn ảnh View nào thì giữ nguyên scene.
+        if (View != null && set.views != null && set.views.Count > 0)
+        {
+            for (int i = 0; i < View.Count; i++)
+            {
+                var img = View[i];
+                if (img == null) continue;
+
+                Sprite sp = i < set.views.Count ? set.views[i] : null;
+                img.gameObject.SetActive(sp != null);
+                if (sp != null) img.sprite = sp;
             }
         }
     }

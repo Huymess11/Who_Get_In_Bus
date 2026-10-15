@@ -2746,7 +2746,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: ae2b5003b221ec84a940bb995501a627, type: 3}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -2907,6 +2907,13 @@ MonoBehaviour:
   - {fileID: 2100000025}
   - {fileID: 2100000029}
   - {fileID: 2100000033}
+  View:
+  - {fileID: 1471003938}
+  - {fileID: 1311525516}
+  - {fileID: 870606355}
+  TopBanner: {fileID: 1353847811}
+  BG: {fileID: 1732554065}
+  BottomBar: {fileID: 1739630422}
   keepTopRoadProportion: 0
 --- !u!4 &1471711543
 Transform:
@@ -3039,6 +3046,7 @@ MonoBehaviour:
   parkingLot: {fileID: 1816706287}
   envController: {fileID: 1471711542}
   CarCount: {fileID: 1602981603}
+  carCountFullColor: {r: 0.627451, g: 0.40784314, b: 0.21960784, a: 1}
 --- !u!4 &1505512341
 Transform:
   m_ObjectHideFlags: 0

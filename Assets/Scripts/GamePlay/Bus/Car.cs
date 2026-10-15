@@ -44,6 +44,7 @@ namespace WhoGetInBus.GamePlay
         private Coroutine bumpCoroutine;
         private Vector3 savedBasePos;
         private Quaternion savedBaseRot;
+        private Vector3 savedBaseScale = Vector3.one;
 
         // Bộ đệm hiệu ứng rung nảy xe (Bounce)
         protected Vector3 originalScale;
@@ -308,7 +309,7 @@ namespace WhoGetInBus.GamePlay
         }
 
         /// <summary>
-        /// Hoạt cảnh xe bị kẹt phía sau: chồm lên phía trước rồi nảy dội lùi lại và rung lắc dữ dội (Bus Out style)
+        /// Hoạt cảnh xe không xuất bến được: nhún và lắc lư tại chỗ
         /// </summary>
         public virtual void PlayBlockedBumpAnimation()
         {
@@ -319,11 +320,13 @@ namespace WhoGetInBus.GamePlay
                 StopCoroutine(bumpCoroutine);
                 transform.position = savedBasePos;
                 transform.rotation = savedBaseRot;
+                transform.localScale = savedBaseScale;
             }
             else
             {
                 savedBasePos = transform.position;
                 savedBaseRot = transform.rotation;
+                savedBaseScale = transform.localScale;
             }
 
             bumpCoroutine = StartCoroutine(BlockedBumpRoutine());
@@ -344,66 +347,52 @@ namespace WhoGetInBus.GamePlay
             {
                 transform.position = savedBasePos;
                 transform.rotation = savedBaseRot;
+                transform.localScale = savedBaseScale;
                 isBumping = false;
             }
         }
 
+        [Header("Hoạt Cảnh Không Xuất Bến Được (nhún + lắc lư tại chỗ)")]
+        [Tooltip("Tổng thời gian nhún lắc (giây)")]
+        public float blockedWobbleDuration = 0.4f;
+        [Tooltip("Độ nén thân xe khi nhún (0.08 = nén 8% chiều cao)")]
+        public float blockedSquash = 0.08f;
+        [Tooltip("Góc lắc lư sang hai bên tối đa (độ)")]
+        public float blockedSwayAngle = 6f;
+
         /// <summary>
-        /// Coroutine mô phỏng hiệu ứng va chạm đàn hồi cực đã tay:
-        /// 1. Nhào tới trước 0.35m trong 0.07s
-        /// 2. Bật nảy lùi về vị trí ban đầu trong 0.08s
-        /// 3. Thân xe rung lắc chao đảo (Wobble Shake) 0.2s tắt dần
+        /// Xe không xuất bến được: nhún (nén/giãn thân xe) và lắc lư sang hai bên tại chỗ, tắt dần — không tiến về phía trước.
         /// </summary>
         protected virtual IEnumerator BlockedBumpRoutine()
         {
             isBumping = true;
             Vector3 originPos = savedBasePos;
             Quaternion originRot = savedBaseRot;
+            Vector3 originScale = savedBaseScale;
 
-            float bumpDist = 0.35f;
-            Vector3 bumpTarget = originPos + transform.forward * bumpDist;
-
-            // Phase 1: Xe chồm mạnh lên phía trước (Ease-Out, 0.07s)
+            float dur = Mathf.Max(0.05f, blockedWobbleDuration);
             float t = 0f;
-            float bumpDur = 0.07f;
-            while (t < bumpDur)
+            while (t < dur)
             {
                 t += Time.deltaTime;
-                float p = Mathf.Sin((t / bumpDur) * (Mathf.PI * 0.5f));
-                transform.position = Vector3.Lerp(originPos, bumpTarget, p);
-                yield return null;
-            }
+                float p = Mathf.Clamp01(t / dur);
+                float decay = (1f - p) * (1f - p);
 
-            // Phase 2: Nảy dội ngược về vị trí ban đầu (Ease-In, 0.08s)
-            t = 0f;
-            float returnDur = 0.08f;
-            while (t < returnDur)
-            {
-                t += Time.deltaTime;
-                float p = 1f - Mathf.Cos((t / returnDur) * (Mathf.PI * 0.5f));
-                transform.position = Vector3.Lerp(bumpTarget, originPos, p);
-                yield return null;
-            }
-            transform.position = originPos;
+                // Nhún: thân xe dẹt xuống rồi bật lên (giữ thể tích: cao giảm thì ngang nở ra)
+                float s = Mathf.Sin(p * Mathf.PI * 3f) * blockedSquash * decay;
+                transform.localScale = Vector3.Scale(originScale, new Vector3(1f + s * 0.5f, 1f - s, 1f + s * 0.5f));
 
-            // Phase 3: Thân xe rung lắc chao đảo quanh các trục (Wobble Shake, 0.2s)
-            t = 0f;
-            float shakeDur = 0.2f;
-            float maxAngle = 4.5f;
-            while (t < shakeDur)
-            {
-                t += Time.deltaTime;
-                float decay = 1f - (t / shakeDur);
-                float roll = Mathf.Sin(t * 36f) * maxAngle * decay;
-                float yaw = Mathf.Cos(t * 28f) * (maxAngle * 0.4f) * decay;
-                float pitch = Mathf.Sin(t * 42f) * (maxAngle * 0.25f) * decay;
+                // Lắc lư sang trái/phải quanh trục dọc thân xe
+                float roll = Mathf.Sin(p * Mathf.PI * 4f) * blockedSwayAngle * decay;
+                transform.rotation = originRot * Quaternion.Euler(0f, 0f, roll);
 
-                transform.rotation = originRot * Quaternion.Euler(pitch, yaw, roll);
+                transform.position = originPos;
                 yield return null;
             }
 
             transform.position = originPos;
             transform.rotation = originRot;
+            transform.localScale = originScale;
             isBumping = false;
             bumpCoroutine = null;
         }
