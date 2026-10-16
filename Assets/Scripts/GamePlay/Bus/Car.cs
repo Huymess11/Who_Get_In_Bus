@@ -42,7 +42,6 @@ namespace WhoGetInBus.GamePlay
         [Header("Hiệu Ứng Bị Chặn (Blocked Bump & Wobble)")]
         public bool isBumping { get; private set; }
         private Coroutine bumpCoroutine;
-        private Vector3 savedBasePos;
         private Quaternion savedBaseRot;
         private Vector3 savedBaseScale = Vector3.one;
 
@@ -432,11 +431,17 @@ namespace WhoGetInBus.GamePlay
         /// </summary>
         public virtual void OnCarClicked()
         {
+            // OnPointerDown (EventSystem) và OnMouseDown cùng bắn cho 1 lần chạm → chỉ xử lý 1 lần mỗi frame
+            if (Time.frameCount == lastClickFrame) return;
+            lastClickFrame = Time.frameCount;
+
             if (ParkingLotManager.Instance != null)
             {
                 ParkingLotManager.Instance.OnCarClicked(this);
             }
         }
+
+        private int lastClickFrame = -1;
 
         /// <summary>
         /// Hoạt cảnh xe không xuất bến được: nhún và lắc lư tại chỗ
@@ -445,25 +450,27 @@ namespace WhoGetInBus.GamePlay
         {
             if (isInLoop || isPendingExit || isMerging) return;
 
+            // Đang nhún dở: trả về dáng gốc đã lưu rồi diễn lại từ đầu (không lưu đè dáng đang méo làm gốc)
             if (bumpCoroutine != null)
             {
                 StopCoroutine(bumpCoroutine);
-                transform.position = savedBasePos;
+                bumpCoroutine = null;
                 transform.rotation = savedBaseRot;
                 transform.localScale = savedBaseScale;
             }
             else
             {
-                savedBasePos = transform.position;
                 savedBaseRot = transform.rotation;
                 savedBaseScale = transform.localScale;
             }
 
+            if (!isActiveAndEnabled) return;
             bumpCoroutine = StartCoroutine(BlockedBumpRoutine());
         }
 
         /// <summary>
-        /// Dừng ngay hoạt cảnh rung lắc nếu xe cần di chuyển tiến lên
+        /// Dừng ngay hoạt cảnh nhún lắc và trả lại góc xoay + kích thước gốc.
+        /// Hoạt cảnh này không bao giờ đụng tới vị trí nên xe đang trượt / lao ra không bị kéo về chỗ cũ.
         /// </summary>
         public virtual void StopBlockedBumpAnimation()
         {
@@ -475,7 +482,6 @@ namespace WhoGetInBus.GamePlay
 
             if (isBumping)
             {
-                transform.position = savedBasePos;
                 transform.rotation = savedBaseRot;
                 transform.localScale = savedBaseScale;
                 isBumping = false;
@@ -492,11 +498,11 @@ namespace WhoGetInBus.GamePlay
 
         /// <summary>
         /// Xe không xuất bến được: nhún (nén/giãn thân xe) và lắc lư sang hai bên tại chỗ, tắt dần — không tiến về phía trước.
+        /// Chỉ thay đổi góc xoay + kích thước, KHÔNG ghi vị trí (để chạy song song an toàn với hoạt cảnh dồn hàng của bãi xe).
         /// </summary>
         protected virtual IEnumerator BlockedBumpRoutine()
         {
             isBumping = true;
-            Vector3 originPos = savedBasePos;
             Quaternion originRot = savedBaseRot;
             Vector3 originScale = savedBaseScale;
 
@@ -515,12 +521,9 @@ namespace WhoGetInBus.GamePlay
                 // Lắc lư sang trái/phải quanh trục dọc thân xe
                 float roll = Mathf.Sin(p * Mathf.PI * 4f) * blockedSwayAngle * decay;
                 transform.rotation = originRot * Quaternion.Euler(0f, 0f, roll);
-
-                transform.position = originPos;
                 yield return null;
             }
 
-            transform.position = originPos;
             transform.rotation = originRot;
             transform.localScale = originScale;
             isBumping = false;

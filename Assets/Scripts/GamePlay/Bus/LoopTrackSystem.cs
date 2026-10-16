@@ -109,6 +109,12 @@ namespace WhoGetInBus.GamePlay
         [Tooltip("Dung sai khi xác định xe đang ở đúng ngã rẽ / điểm cắt (Cocos: 0.15)")]
         public float junctionEpsilon = 0.15f;
 
+        [Header("Chống Chồng Xe (thêm ngoài game gốc)")]
+        [Tooltip("Chặn mọi trường hợp 2 xe đè lên nhau (vòng, làn thoát, xe lao từ bãi ra, sau khi gộp xe). Game gốc vẫn để xe áp sát trong vài tình huống nhập làn")]
+        public bool preventCarOverlap = true;
+        [Tooltip("Khoảng cách tâm–tâm tối thiểu giữa 2 xe bất kỳ (đơn vị world). Thân xe dài ~1.15–1.2")]
+        public float minCarSeparation = 1.3f;
+
         [Header("Vòng Quét Ăn Cát (Cocos LevelController.tickAbsorb)")]
         [Tooltip("sandArtDetectionInterval: chu kỳ quét (giây)")]
         public float absorbDetectionInterval = 0.025f;
@@ -785,6 +791,21 @@ namespace WhoGetInBus.GamePlay
 
             TickCarts(dt);
             TickAbsorb(dt);
+            TickMergeSafetyCheck(dt);
+        }
+
+        [Tooltip("Kiểm tra lại việc gộp 3 xe mỗi khoảng thời gian (giây). Game gốc chỉ kiểm tra khi 1 xe vừa nhập làn; " +
+                 "nếu lúc đó có xe tạm chưa đủ điều kiện (đang gộp dở, lượt gộp bị huỷ...) mà đường đã kín chỗ thì bộ 3 sẽ kẹt mãi. 0 = tắt")]
+        public float mergeSafetyCheckInterval = 0.5f;
+        private float mergeSafetyTimer;
+
+        private void TickMergeSafetyCheck(float dt)
+        {
+            if (mergeSafetyCheckInterval <= 0f || mergingThreeInOne) return;
+            mergeSafetyTimer += dt;
+            if (mergeSafetyTimer < mergeSafetyCheckInterval) return;
+            mergeSafetyTimer = 0f;
+            CheckAndMergeSameColorCars(default);
         }
 
         /// <summary>Cocos: updateSpeedState.</summary>
@@ -839,6 +860,7 @@ namespace WhoGetInBus.GamePlay
             if (activeCarsOnTrack.Count == 0) return;
 
             BuildMoveAllowances(dt);
+            if (preventCarOverlap) ApplyOverlapGuard();
 
             removeList.Clear();
             for (int i = 0; i < activeCarsOnTrack.Count; i++)
@@ -1155,6 +1177,166 @@ namespace WhoGetInBus.GamePlay
                 rear.moveAllowance = Mathf.Min(rear.moveAllowance, Mathf.Max(0f, front.moveAllowance + d - gap));
             }
         }
+
+        #region CHỐNG CHỒNG XE THEO KHOẢNG CÁCH THỰC (lớp bảo vệ chạy sau logic gốc)
+
+        private struct GuardBody
+        {
+            public CarLoopFollower car;
+            public Vector3 pos;
+            public Vector3 dir;
+            public int priority;   // cao hơn = được ưu tiên đi trước khi 2 xe cùng thấy nhau ở phía trước
+            public int order;      // phá hoà ưu tiên cố định
+        }
+
+        private readonly List<GuardBody> guardBodies = new List<GuardBody>(16);
+
+        private const int PriorityLooping = 1, PriorityExiting = 2, PriorityCommittedDeploy = 3;
+
+        /// <summary>Bán kính quanh điểm nhập làn: xe từ bãi vào trong vùng này coi như đã "chiếm" làn, xe đang chạy phải nhường.</summary>
+        private float DeployCommitRadius => Mathf.Max(0.01f, minCarSeparation) * 2f;
+
+        /// <summary>
+        /// Giới hạn thêm quãng đi mỗi frame để khoảng cách thực giữa 2 xe không bao giờ nhỏ hơn minCarSeparation.
+        /// Xe chỉ nhường xe nằm phía TRƯỚC mình; nếu 2 xe cùng thấy nhau phía trước thì xe ưu tiên thấp hơn nhường (không kẹt cứng).
+        /// Xe đã sát nhau từ trước chỉ được đi nếu bước đi làm khoảng cách tăng lên.
+        /// </summary>
+        private void ApplyOverlapGuard()
+        {
+            float minSep = Mathf.Max(0.01f, minCarSeparation);
+            guardBodies.Clear();
+
+            for (int i = 0; i < activeCarsOnTrack.Count; i++)
+            {
+                var car = activeCarsOnTrack[i];
+                if (car == null || !car.isInLoop || car.isMerging) continue;
+                bool exit = car.isExiting;
+                guardBodies.Add(new GuardBody
+                {
+                    car = car,
+                    pos = EvaluatePosition(car.currentTrackDistance, exit),
+                    dir = SampleLookAheadTangent(car.currentTrackDistance, LookAhead, exit),
+                    priority = exit ? PriorityExiting : PriorityLooping,
+                    order = i,
+                });
+            }
+            int trackCount = guardBodies.Count;
+
+            // Xe từ bãi đã vào sát điểm nhập làn: vật cản ưu tiên cao (xe đang chạy luôn nhường)
+            foreach (var kv in deployReservations)
+            {
+                var car = kv.Key;
+                if (car == null || kv.Value == null || car.isInLoop) continue;
+                Vector3 p = car.transform.position;
+                if ((p - kv.Value.plan.mergeWorld).sqrMagnitude > DeployCommitRadius * DeployCommitRadius) continue;
+                guardBodies.Add(new GuardBody { car = car, pos = p, dir = kv.Value.plan.mergeTangent, priority = PriorityCommittedDeploy, order = -1 });
+            }
+
+            for (int i = 0; i < trackCount; i++)
+            {
+                var self = guardBodies[i];
+                var car = self.car;
+                float allowance = car.moveAllowance;
+                if (allowance <= 0f) continue;
+
+                bool exit = car.isExiting;
+                float d0 = car.currentTrackDistance;
+
+                for (int j = 0; j < guardBodies.Count && allowance > 0f; j++)
+                {
+                    if (j == i) continue;
+                    var other = guardBodies[j];
+                    Vector3 v = other.pos - self.pos;
+                    v.y = 0f;
+                    float reach = minSep + allowance + 0.1f;
+                    if (v.sqrMagnitude > reach * reach) continue;
+                    if (Vector3.Dot(self.dir, v) <= 0f) continue; // xe kia ở phía sau → không cần nhường
+
+                    // 2 xe cùng thấy nhau phía trước: xe ưu tiên cao hơn được đi, xe kia nhường
+                    bool selfAheadOfOther = Vector3.Dot(other.dir, -v) > 0f;
+                    if (selfAheadOfOther && other.priority != PriorityCommittedDeploy &&
+                        (self.priority > other.priority || (self.priority == other.priority && self.order < other.order)))
+                        continue;
+
+                    allowance = LimitMoveAwayFrom(d0, exit, allowance, other.pos, minSep);
+                }
+
+                car.moveAllowance = allowance;
+            }
+        }
+
+        /// <summary>Quãng đi lớn nhất trong [0, allowance] sao cho xe không lại gần obstaclePos dưới minSep.</summary>
+        private float LimitMoveAwayFrom(float d0, bool exit, float allowance, Vector3 obstaclePos, float minSep)
+        {
+            Vector3 cur = EvaluatePosition(d0, exit);
+            float curDist = FlatDistance(cur, obstaclePos);
+            float nextDist = FlatDistance(EvaluatePosition(d0 + allowance, exit), obstaclePos);
+            if (nextDist >= minSep) return allowance;
+
+            // Đã sát từ trước: chỉ cho đi nếu bước đi đưa 2 xe ra xa nhau
+            if (curDist < minSep) return nextDist > curDist ? allowance : 0f;
+
+            float lo = 0f, hi = allowance;
+            for (int k = 0; k < 10; k++)
+            {
+                float mid = (lo + hi) * 0.5f;
+                if (FlatDistance(EvaluatePosition(d0 + mid, exit), obstaclePos) >= minSep) lo = mid;
+                else hi = mid;
+            }
+            return lo;
+        }
+
+        private static float FlatDistance(Vector3 a, Vector3 b)
+        {
+            a.y = 0f;
+            b.y = 0f;
+            return Vector3.Distance(a, b);
+        }
+
+        /// <summary>
+        /// Xe đang lao từ bãi ra (ParkingLotManager) hỏi trước khi tiến tới nextPos.
+        /// Ngoài vùng nhập làn: nhường mọi xe đang ở gần. Muốn bước VÀO vùng nhập làn: không có xe nào đang đứng ngay tại điểm nhập
+        /// (trong minSep) — xe đang tới gần sẽ nhường xe đã vào vùng nên không cần đợi chúng (tránh kẹt với xe bị giữ chỗ đứng chờ).
+        /// Đã ở trong vùng: được đi tiếp (xe đang chạy sẽ nhường nó).
+        /// </summary>
+        public bool CanDeployStep(CarLoopFollower car, Vector3 curPos, Vector3 nextPos)
+        {
+            if (!preventCarOverlap || car == null) return true;
+            if (!deployReservations.TryGetValue(car, out var res) || res == null) return true;
+
+            float minSep = Mathf.Max(0.01f, minCarSeparation);
+            float commit = DeployCommitRadius;
+            Vector3 merge = res.plan.mergeWorld;
+            bool insideNow = FlatDistance(curPos, merge) < commit;
+            if (insideNow) return true;
+
+            bool entering = FlatDistance(nextPos, merge) < commit;
+
+            for (int i = 0; i < activeCarsOnTrack.Count; i++)
+            {
+                var other = activeCarsOnTrack[i];
+                if (other == null || other == car || !other.isInLoop || other.isMerging) continue;
+                Vector3 p = EvaluatePosition(other.currentTrackDistance, other.isExiting);
+
+                if (entering && FlatDistance(p, merge) < minSep) return false;
+
+                float nd = FlatDistance(nextPos, p);
+                if (nd < minSep && nd < FlatDistance(curPos, p)) return false;
+            }
+
+            foreach (var kv in deployReservations)
+            {
+                var other = kv.Key;
+                if (other == null || other == car || other.isInLoop) continue;
+                Vector3 p = other.transform.position;
+                if (entering && FlatDistance(p, merge) < minSep) return false;
+                float nd = FlatDistance(nextPos, p);
+                if (nd < minSep && nd < FlatDistance(curPos, p)) return false;
+            }
+            return true;
+        }
+
+        #endregion
 
         #endregion
 
@@ -1593,9 +1775,15 @@ namespace WhoGetInBus.GamePlay
         /// <summary>Cocos: isConnectionElementType — xe nối là loại 101..199 (giá trị thứ 3 trong chuỗi xe "màu_ghế_loại").</summary>
         private static bool IsConnectionMechanic(CarMechanicType type)
         {
+            // Game gốc loại xe nối (BucketConnection) khỏi gộp vì chúng được chọn & đi theo nhóm.
+            // Unity CHƯA làm cơ chế xe nối — chúng được sinh và chạy y như xe thường — nên vẫn cho gộp như xe thường,
+            // nếu không sẽ có 3 xe cùng màu "bình thường" trên đường mà không gộp. Bật lại khi làm xong cơ chế xe nối.
+            if (!ConnectionMechanicImplemented) return false;
             int t = (int)type;
             return t > 100 && t < 200;
         }
+
+        private const bool ConnectionMechanicImplemented = false;
 
         /// <summary>
         /// Cocos: checkAndMergeThreeInOne — gọi sau khi 1 xe nhập làn xong. Nếu đang gộp thì bỏ qua

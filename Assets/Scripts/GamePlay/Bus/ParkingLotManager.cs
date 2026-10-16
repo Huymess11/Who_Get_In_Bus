@@ -269,6 +269,12 @@ namespace WhoGetInBus.GamePlay
 
         public void ClearParkingLot()
         {
+            foreach (var kv in slideRoutines)
+            {
+                if (kv.Value != null) StopCoroutine(kv.Value);
+            }
+            slideRoutines.Clear();
+
             EnsureCarsHolder();
             if (carsHolder != null && carsHolder != transform)
             {
@@ -364,6 +370,10 @@ namespace WhoGetInBus.GamePlay
         {
             if (car == null || car.isInLoop || car.isPendingExit || car.isMerging) return;
 
+            // Đã thắng / thua / chưa bắt đầu → không cho xuất xe
+            var gm = GameManager.Instance;
+            if (gm != null && gm.currentState != GameManager.PlayState.Playing) return;
+
             // Tìm vị trí của xe trong các cột bãi đỗ
             for (int c = 0; c < columnsOfCars.Count; c++)
             {
@@ -428,6 +438,8 @@ namespace WhoGetInBus.GamePlay
         {
             if (car == null) yield break;
 
+            // Xe có thể đang trượt dồn hàng / đang nhún lắc dở → dừng hết trước khi lao ra đường
+            StopSlide(car);
             car.StopBlockedBumpAnimation();
 
             // Cocos: bucket rời bãi ngay khi được chọn → các xe phía sau dồn lên luôn, không chờ xe nhập làn xong
@@ -450,11 +462,19 @@ namespace WhoGetInBus.GamePlay
                 if (car == null) yield break;
                 if (!track.IsCartDeployActive(car)) yield break; // bị huỷ (nạp màn mới...)
 
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
+                float nextElapsed = elapsed + Time.deltaTime;
+                float t = Mathf.Clamp01(nextElapsed / duration);
 
                 // Chuyển động tuyến tính + cung nhún trục Y (Cocos: tween linear, arcHeight 0.2)
                 Vector3 pos = Vector3.Lerp(startPos, plan.mergeWorld, t);
+
+                // Bước tới sẽ chạm xe khác → đứng chờ tại chỗ (không tăng tiến độ), thông thì đi tiếp
+                if (!track.CanDeployStep(car, car.transform.position, pos))
+                {
+                    yield return null;
+                    continue;
+                }
+                elapsed = nextElapsed;
                 pos.y = Mathf.Lerp(startPos.y, plan.mergeWorld.y, t) + Mathf.Sin(Mathf.PI * t) * arcHeight;
                 car.transform.position = pos;
                 car.transform.rotation = Quaternion.Slerp(startRot, plan.targetRotation, t);
@@ -467,7 +487,12 @@ namespace WhoGetInBus.GamePlay
             if (track.IsCartDeployActive(car))
             {
                 car.transform.position = plan.mergeWorld;
-                track.RegisterCartAtDeployPlan(car, plan);
+                if (!track.RegisterCartAtDeployPlan(car, plan))
+                {
+                    // Không vào làn được (đường chưa sẵn sàng...) → trả lại chỗ đã giữ để slot không bị chiếm vĩnh viễn
+                    track.CancelCartDeploy(car);
+                    Debug.LogWarning($"[ParkingLotManager] {car.name} không đăng ký vào làn được, đã trả lại slot.", car);
+                }
             }
         }
 
@@ -480,12 +505,30 @@ namespace WhoGetInBus.GamePlay
             for (int r = 0; r < colList.Count; r++)
             {
                 CarLoopFollower car = colList[r];
-                if (car != null)
-                {
-                    car.StopBlockedBumpAnimation();
-                    Vector3 targetPos = GetSlotPosition(colIndex, r, columnsOfCars.Count);
-                    StartCoroutine(SlideCarForward(car, targetPos));
-                }
+                if (car != null) StartSlide(car, GetSlotPosition(colIndex, r, columnsOfCars.Count));
+            }
+        }
+
+        #region DỒN HÀNG (mỗi xe chỉ 1 hoạt cảnh trượt — bấm liên tục không làm lệch vị trí)
+
+        private readonly Dictionary<CarLoopFollower, Coroutine> slideRoutines = new Dictionary<CarLoopFollower, Coroutine>();
+
+        /// <summary>
+        /// Trượt xe tới ô đích. Xe đang trượt dở thì dừng lần cũ và trượt tiếp từ vị trí hiện tại tới ô mới,
+        /// nên không bao giờ có 2 hoạt cảnh cùng ghi vị trí. Nhún lắc (Car) chỉ đổi góc xoay/kích thước nên chạy song song được.
+        /// </summary>
+        private void StartSlide(CarLoopFollower car, Vector3 targetPos)
+        {
+            StopSlide(car);
+            slideRoutines[car] = StartCoroutine(SlideCarForward(car, targetPos));
+        }
+
+        private void StopSlide(CarLoopFollower car)
+        {
+            if (car != null && slideRoutines.TryGetValue(car, out var routine))
+            {
+                if (routine != null) StopCoroutine(routine);
+                slideRoutines.Remove(car);
             }
         }
 
@@ -495,15 +538,22 @@ namespace WhoGetInBus.GamePlay
             float elapsed = 0f;
             float duration = 0.25f;
 
-            while (elapsed < duration && car != null)
+            while (elapsed < duration)
             {
+                if (car == null) yield break;
                 elapsed += Time.deltaTime;
                 float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
                 car.transform.position = Vector3.Lerp(startPos, targetPos, t);
                 yield return null;
             }
 
-            if (car != null) car.transform.position = targetPos;
+            if (car != null)
+            {
+                car.transform.position = targetPos;
+                slideRoutines.Remove(car);
+            }
         }
+
+        #endregion
     }
 }
