@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using WhoGetInBus.Data;
 #if UNITY_EDITOR
@@ -142,12 +142,12 @@ namespace WhoGetInBus.GamePlay
         [Header("Hiệu Chỉnh Tỷ Lệ Đường Đua (Fit Track To Road Visual)")]
         [Tooltip("Bật/tắt tự động co giãn toạ độ waypoint khớp với mặt đường vẽ 2D")]
         public bool enableTrackScale = true;
-        [Tooltip("Tỷ lệ scale trục X và Z để thu hẹp vừa khít lòng đường nhựa (Mặc định: X = 0.852, Z = 0.767)")]
-        public Vector2 trackScale = new Vector2(0.852f, 0.767f);
+        [Tooltip("Tỷ lệ scale trục X và Z đổi toạ độ Cocos sang Unity (Chuẩn game gốc: 0.9009 cả 2 trục — xem RoadTrackConfigData.OriginalScale)")]
+        public Vector2 trackScale = new Vector2(RoadTrackConfigData.OriginalScale, RoadTrackConfigData.OriginalScale);
         [Tooltip("Độ dịch tâm trục X (trái/phải)")]
         public float trackOffsetX = 0f;
         [Tooltip("Độ dịch tâm trục Z (tiến/lùi) để vòm chữ U và đáy vừa khít tim đường")]
-        public float trackOffsetZ = -0.018f;
+        public float trackOffsetZ = RoadTrackConfigData.OriginalOffsetZ;
         [Tooltip("Cao độ nâng lên để tránh z-fighting")]
         public float trackHeightOffset = 0f;
 
@@ -196,7 +196,7 @@ namespace WhoGetInBus.GamePlay
 
         public float MoveSpeed => moveSpeed;
 
-        /// <summary>Hệ số đổi đơn vị Cocos → Unity (= trackScale.x, mặc định 100px/117.39px = 0.852). Mọi khoảng cách/tốc độ lấy từ Cocos phải nhân hệ số này để giữ đúng tỉ lệ với đường.</summary>
+        /// <summary>Hệ số đổi đơn vị Cocos → Unity (= trackScale.x, chuẩn game gốc 0.9009). Mọi khoảng cách/tốc độ lấy từ Cocos phải nhân hệ số này để giữ đúng tỉ lệ với đường.</summary>
         public float WorldScale => (enableTrackScale && trackScale.x > 0.0001f) ? trackScale.x : 1f;
 
         /// <summary>Khoảng cách tối thiểu giữa 2 xe (đã đổi sang đơn vị Unity).</summary>

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEditor;
 using WhoGetInBus.GamePlay;
 using WhoGetInBus.Data;
@@ -140,17 +140,9 @@ namespace WhoGetInBus.Editor
                     SceneView.RepaintAll();
                 }
 
-                if (GUILayout.Button("0.80", GUILayout.Width(38), GUILayout.Height(18)))
+                if (GUILayout.Button("Gốc", GUILayout.Width(38), GUILayout.Height(18)))
                 {
-                    ApplyScaleX(mgr, 0.80f);
-                }
-                if (GUILayout.Button("0.852", GUILayout.Width(38), GUILayout.Height(18)))
-                {
-                    ApplyScaleX(mgr, 0.852f);
-                }
-                if (GUILayout.Button("0.90", GUILayout.Width(38), GUILayout.Height(18)))
-                {
-                    ApplyScaleX(mgr, 0.90f);
+                    ApplyScaleX(mgr, RoadTrackConfigData.OriginalScale);
                 }
                 if (GUILayout.Button("1.0", GUILayout.Width(32), GUILayout.Height(18)))
                 {
@@ -177,13 +169,9 @@ namespace WhoGetInBus.Editor
                     SceneView.RepaintAll();
                 }
 
-                if (GUILayout.Button("0.767", GUILayout.Width(38), GUILayout.Height(18)))
+                if (GUILayout.Button("Gốc", GUILayout.Width(38), GUILayout.Height(18)))
                 {
-                    ApplyScaleZ(mgr, 0.767f);
-                }
-                if (GUILayout.Button("0.80", GUILayout.Width(38), GUILayout.Height(18)))
-                {
-                    ApplyScaleZ(mgr, 0.80f);
+                    ApplyScaleZ(mgr, RoadTrackConfigData.OriginalScale);
                 }
                 if (GUILayout.Button("1.0", GUILayout.Width(32), GUILayout.Height(18)))
                 {
@@ -210,9 +198,9 @@ namespace WhoGetInBus.Editor
                     SceneView.RepaintAll();
                 }
 
-                if (GUILayout.Button("-0.018", GUILayout.Width(45), GUILayout.Height(18)))
+                if (GUILayout.Button("Gốc", GUILayout.Width(38), GUILayout.Height(18)))
                 {
-                    ApplyOffsetZ(mgr, -0.018f);
+                    ApplyOffsetZ(mgr, RoadTrackConfigData.OriginalOffsetZ);
                 }
                 if (GUILayout.Button("0", GUILayout.Width(25), GUILayout.Height(18)))
                 {
@@ -280,26 +268,9 @@ namespace WhoGetInBus.Editor
             EditorGUILayout.LabelField("⚡ Thiết Lập Nhanh (Presets)", EditorStyles.boldLabel);
 
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("🎯 Chuẩn Vừa Khít (0.852, 0.767, -0.018)", GUILayout.Height(26)))
+            if (GUILayout.Button("🎯 Chuẩn Game Gốc (0.9009, +0.1478)", GUILayout.Height(26)))
             {
                 if (mgr.trackConfig != null) mgr.trackConfig.ResetToFitRoadDefault();
-                mgr.SyncFromConfig();
-                EditorUtility.SetDirty(mgr);
-                SceneView.RepaintAll();
-            }
-            if (GUILayout.Button("📐 Rộng Hơn (0.90)", GUILayout.Height(26)))
-            {
-                if (mgr.trackConfig != null) mgr.trackConfig.SetWiderPreset();
-                mgr.SyncFromConfig();
-                EditorUtility.SetDirty(mgr);
-                SceneView.RepaintAll();
-            }
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("📏 Hẹp Hơn (0.80)", GUILayout.Height(26)))
-            {
-                if (mgr.trackConfig != null) mgr.trackConfig.SetNarrowPreset();
                 mgr.SyncFromConfig();
                 EditorUtility.SetDirty(mgr);
                 SceneView.RepaintAll();

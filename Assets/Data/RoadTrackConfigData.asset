@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: RoadTrackConfigData
   m_EditorClassIdentifier: Assembly-CSharp::WhoGetInBus.Data.RoadTrackConfigData
   enableTrackScale: 1
-  scaleX: 0.852
-  scaleZ: 0.767
+  scaleX: 0.9009
+  scaleZ: 0.9009
   offsetX: 0
-  offsetZ: -0.018
+  offsetZ: 0.1478
   heightOffset: 0

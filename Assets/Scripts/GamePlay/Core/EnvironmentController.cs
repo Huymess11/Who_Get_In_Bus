@@ -23,10 +23,9 @@ public class EnvironmentController : MonoBehaviour
 
     [Header("Chuẩn ảnh Top theo từng đường (Cocos: prefab road/{bgStyle}/roadTop{id})")]
     [Tooltip("Game gốc: mọi ảnh Top neo đáy cùng 1 điểm, cùng chiều rộng, chiều CAO = số pixel ảnh (ảnh mỗi đường cao khác nhau: road5 536, road21 467, road8 267...). " +
-             "Bật để chiều cao khung Top = chiều cao ảnh × Pixel Scale Y; giữ nguyên chiều rộng và vị trí đáy đã căn trong scene")]
+             "Bật để chiều cao khung Top = số pixel ảnh × (chiều rộng khung / 667) — cùng tỉ lệ với chiều ngang như game gốc; giữ nguyên chiều rộng và vị trí đáy đã căn trong scene. " +
+             "Waypoint đường (RoadTrackConfigData.OriginalScale) tính theo bố cục này")]
     public bool matchOriginalTopRoadHeight = true;
-    [Tooltip("Số đơn vị UI cho 1 pixel ảnh theo chiều dọc. Mặc định 700/536: khung Top 700 đã căn khớp game gốc với ảnh road 5 cao 536px")]
-    public float topRoadPixelScaleY = 700f / 536f;
 
     private static readonly Regex OverlayName = new Regex(@"^Overlay Road(\d+)\s+(\S+)", RegexOptions.Compiled);
 
@@ -57,7 +56,9 @@ public class EnvironmentController : MonoBehaviour
                 // Riêng prefab có Sprite CUSTOM size thì Cocos ép ảnh theo khung (road 11: ảnh 583px hiển thị cao 544).
                 var rt = TopRoad.rectTransform;
                 float squash = OriginalTopSquashY.TryGetValue(roadId, out float s) ? s : 1f;
-                rt.sizeDelta = new Vector2(rt.sizeDelta.x, topSp.rect.height * topRoadPixelScaleY * squash);
+                // Cocos: khung rộng cố định 667px, cao = số pixel ảnh → cùng 1 tỉ lệ đơn vị UI / pixel Cocos cho 2 chiều
+                float pixelScale = rt.sizeDelta.x / OriginalTopFrameWidth;
+                rt.sizeDelta = new Vector2(rt.sizeDelta.x, topSp.rect.height * pixelScale * squash);
             }
         }
 
@@ -121,6 +122,9 @@ public class EnvironmentController : MonoBehaviour
         { "roadTop21_4", new Vector2(0.5f, 0.5f) },
         { "roadTop21_4_05", new Vector2(-1f, 0.5f) },
     };
+
+    // Chiều rộng khung roadTop trong prefab gốc (pixel Cocos)
+    private const float OriginalTopFrameWidth = 667f;
 
     // Prefab gốc dùng Sprite CUSTOM size khác kích thước ảnh: tỉ lệ ép chiều dọc (khung / nội dung ảnh). Các đường khác = 1
     private static readonly Dictionary<int, float> OriginalTopSquashY = new Dictionary<int, float>
