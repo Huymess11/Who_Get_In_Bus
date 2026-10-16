@@ -143,6 +143,10 @@ namespace WhoGetInBus.GamePlay
         [Tooltip("Camera của canvas bàn cát (Camera UI 3D)")]
         [SerializeField] private Camera uiCamera;
 
+        [Header("Thứ tự vẽ tranh cát / đường Top")]
+        [Tooltip("Tắt (mặc định, bản gốc tiếng Trung): tranh cát đè lên đường, riêng đường 11/12/13 có cầu thì đường đè lên cát. " +
+                 "Bật: đường luôn đè lên cát ở mọi đường (bản quốc tế 'artist' có bản vá __artistRoadForeground)")]
+        [SerializeField] private bool roadAlwaysOverSand = false;
         /// <summary>Tổng số hạt còn lại = hạt trên bàn cát + hạt còn trong hàng đợi chờ rơi xuống.</summary>
         public int TotalRemainingBeads => logic.boardBeadCount + logic.queueColors.Count;
         public int BoardBeadCount => logic.boardBeadCount;
@@ -304,6 +308,17 @@ namespace WhoGetInBus.GamePlay
         }
 
         /// <summary>
+        /// Cocos: targetController có con [roadTop, personView (hạt cát), roadBottom, flightNode]; updateRoadTop đặt roadTop
+        /// index 0 (tranh cát đè lên đường), riêng đường 11/12/13 có cầu thì index 1 (đường đè lên tranh cát).
+        /// </summary>
+        private void PlaceRelativeToTopRoad(int roadId)
+        {
+            // Map Canvass: bg(0), [cát / Top](1, 2), Bottom(3)... — con đứng sau vẽ đè lên con đứng trước
+            bool sandOverRoad = !roadAlwaysOverSand && roadId != 11 && roadId != 12 && roadId != 13;
+            transform.SetSiblingIndex(sandOverRoad ? 2 : 1);
+        }
+
+        /// <summary>
         /// Nạp và sinh trực tiếp tranh cát từ Level ID chuẩn (1, 2, ...)
         /// </summary>
         public void LoadLevelDirect(int targetLevelId, GamePrefabData prefabData = null)
@@ -327,6 +342,7 @@ namespace WhoGetInBus.GamePlay
                     }
                     levelId = targetLevelId;
                     currentRoadId = levelData.road;
+                    PlaceRelativeToTopRoad(levelData.road);
                     BuildBoard(pData, prefabData);
                     return;
                 }

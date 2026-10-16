@@ -61,16 +61,6 @@ public class EnvironmentController : MonoBehaviour
             }
         }
 
-        // Thứ tự vẽ như game gốc: đường 11/12/13 vẽ Top đè lên Bottom, các đường khác Bottom đè lên Top
-        if (TopRoad != null && BottomRoad != null && TopRoad.transform.parent == BottomRoad.transform.parent)
-        {
-            bool topAbove = roadId == 11 || roadId == 12 || roadId == 13;
-            int bottomIndex = BottomRoad.transform.GetSiblingIndex();
-            int topIndex = TopRoad.transform.GetSiblingIndex();
-            if (topAbove && topIndex < bottomIndex) TopRoad.transform.SetSiblingIndex(bottomIndex);
-            else if (!topAbove && topIndex > bottomIndex) TopRoad.transform.SetSiblingIndex(bottomIndex);
-        }
-
         // Ảnh phụ: chỉ đổi sprite và bật/tắt, vị trí + kích thước do scene quyết định
         if (TopRoadDetail != null)
         {
