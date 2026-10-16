@@ -128,6 +128,8 @@ namespace WhoGetInBus.GamePlay
         [SerializeField] private ParkingLotManager parkingLot;
         [Tooltip("Hệ thống khách bay lên xe (gán passengerPrefab trên chính component đó)")]
         [SerializeField] private PassengerFlightSystem flightSystem;
+        [Tooltip("Đèn giao thông + thanh chắn ở làn thoát: mở khi có xe đầy chờ ra / đang ra, đóng khi hết")]
+        [SerializeField] private TrafficAndBarrierManager trafficBarrier;
 
         [Header("Luật Hợp Thể 3 Xe Cùng Màu (Extra Car Merge)")]
         public GameObject extraCarPrefab;
@@ -423,6 +425,23 @@ namespace WhoGetInBus.GamePlay
             if (car == null) return;
             activeCarsOnTrack.Remove(car);
             deployReservations.Remove(car);
+            RefreshExitGate();
+        }
+
+        /// <summary>
+        /// Mở làn thoát khi còn xe đầy khách chờ ra hoặc đang chạy trên làn thoát, ngược lại đóng
+        /// (Cocos: markCartPendingExit → applyExitPathOpenVisual, onCartLeftExitPath/unregisterCart → applyExitPathCloseVisual).
+        /// </summary>
+        private void RefreshExitGate(bool instant = false)
+        {
+            if (trafficBarrier == null) return;
+            bool inUse = false;
+            for (int i = 0; i < activeCarsOnTrack.Count; i++)
+            {
+                var c = activeCarsOnTrack[i];
+                if (c != null && (c.isPendingExit || c.isExiting)) { inUse = true; break; }
+            }
+            trafficBarrier.SetExitOpen(inUse, instant);
         }
 
         /// <summary>Xoá toàn bộ xe/chỗ giữ khi nạp màn mới.</summary>
@@ -439,6 +458,7 @@ namespace WhoGetInBus.GamePlay
             fullSpeedTimer = 0f;
             SetSpeedState(TrackSpeedState.Normal);
             if (flightSystem != null) flightSystem.Clear();
+            RefreshExitGate(true);
         }
 
         #endregion
@@ -993,6 +1013,7 @@ namespace WhoGetInBus.GamePlay
             if (car.isExiting || car.isPendingExit) return true;
 
             car.isPendingExit = true;
+            RefreshExitGate();
             if (PathReady && IsAtLoopDistance(car.currentTrackDistance, exitJunctionDistance, JunctionEps) && IsExitEntryClear())
             {
                 SwitchToExiting(car);
@@ -1875,6 +1896,7 @@ namespace WhoGetInBus.GamePlay
                         tails.Add(car);
                         tailStarts.Add(car.transform.position);
                     }
+                    RefreshExitGate();
 
                     Debug.Log($"<color=cyan>⚡ [GỘP XE]</color> 3 xe màu {color} trên đường → gộp thành xe 3-trong-1.");
 
